@@ -24,9 +24,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		6E6F9BEE2FD68A7100A94BEE /* DriverStats.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DriverStats.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		6E6F9BFD2FD68A7200A94BEE /* DriverStatsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DriverStatsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		6E6F9C072FD68A7200A94BEE /* DriverStatsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DriverStatsUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6E6F9BEE2FD68A7100A94BEE /* DrivingStats.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DrivingStats.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6E6F9BFD2FD68A7200A94BEE /* DrivingStatsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DrivingStatsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6E6F9C072FD68A7200A94BEE /* DrivingStatsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DrivingStatsUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6E6F9C202FD6992500A94BEE /* DrivingStats-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "DrivingStats-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -75,6 +76,7 @@
 		6E6F9BE52FD68A7100A94BEE = {
 			isa = PBXGroup;
 			children = (
+				6E6F9C202FD6992500A94BEE /* DrivingStats-Info.plist */,
 				6E6F9BF02FD68A7100A94BEE /* DriverStats */,
 				6E6F9C002FD68A7200A94BEE /* DriverStatsTests */,
 				6E6F9C0A2FD68A7200A94BEE /* DriverStatsUITests */,
@@ -85,9 +87,9 @@
 		6E6F9BEF2FD68A7100A94BEE /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				6E6F9BEE2FD68A7100A94BEE /* DriverStats.app */,
-				6E6F9BFD2FD68A7200A94BEE /* DriverStatsTests.xctest */,
-				6E6F9C072FD68A7200A94BEE /* DriverStatsUITests.xctest */,
+				6E6F9BEE2FD68A7100A94BEE /* DrivingStats.app */,
+				6E6F9BFD2FD68A7200A94BEE /* DrivingStatsTests.xctest */,
+				6E6F9C072FD68A7200A94BEE /* DrivingStatsUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -95,9 +97,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		6E6F9BED2FD68A7100A94BEE /* DriverStats */ = {
+		6E6F9BED2FD68A7100A94BEE /* DrivingStats */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 6E6F9C112FD68A7200A94BEE /* Build configuration list for PBXNativeTarget "DriverStats" */;
+			buildConfigurationList = 6E6F9C112FD68A7200A94BEE /* Build configuration list for PBXNativeTarget "DrivingStats" */;
 			buildPhases = (
 				6E6F9BEA2FD68A7100A94BEE /* Sources */,
 				6E6F9BEB2FD68A7100A94BEE /* Frameworks */,
@@ -110,16 +112,16 @@
 			fileSystemSynchronizedGroups = (
 				6E6F9BF02FD68A7100A94BEE /* DriverStats */,
 			);
-			name = DriverStats;
+			name = DrivingStats;
 			packageProductDependencies = (
 			);
 			productName = DriverStats;
-			productReference = 6E6F9BEE2FD68A7100A94BEE /* DriverStats.app */;
+			productReference = 6E6F9BEE2FD68A7100A94BEE /* DrivingStats.app */;
 			productType = "com.apple.product-type.application";
 		};
-		6E6F9BFC2FD68A7200A94BEE /* DriverStatsTests */ = {
+		6E6F9BFC2FD68A7200A94BEE /* DrivingStatsTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 6E6F9C142FD68A7200A94BEE /* Build configuration list for PBXNativeTarget "DriverStatsTests" */;
+			buildConfigurationList = 6E6F9C142FD68A7200A94BEE /* Build configuration list for PBXNativeTarget "DrivingStatsTests" */;
 			buildPhases = (
 				6E6F9BF92FD68A7200A94BEE /* Sources */,
 				6E6F9BFA2FD68A7200A94BEE /* Frameworks */,
@@ -133,16 +135,16 @@
 			fileSystemSynchronizedGroups = (
 				6E6F9C002FD68A7200A94BEE /* DriverStatsTests */,
 			);
-			name = DriverStatsTests;
+			name = DrivingStatsTests;
 			packageProductDependencies = (
 			);
 			productName = DriverStatsTests;
-			productReference = 6E6F9BFD2FD68A7200A94BEE /* DriverStatsTests.xctest */;
+			productReference = 6E6F9BFD2FD68A7200A94BEE /* DrivingStatsTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		6E6F9C062FD68A7200A94BEE /* DriverStatsUITests */ = {
+		6E6F9C062FD68A7200A94BEE /* DrivingStatsUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 6E6F9C172FD68A7200A94BEE /* Build configuration list for PBXNativeTarget "DriverStatsUITests" */;
+			buildConfigurationList = 6E6F9C172FD68A7200A94BEE /* Build configuration list for PBXNativeTarget "DrivingStatsUITests" */;
 			buildPhases = (
 				6E6F9C032FD68A7200A94BEE /* Sources */,
 				6E6F9C042FD68A7200A94BEE /* Frameworks */,
@@ -156,11 +158,11 @@
 			fileSystemSynchronizedGroups = (
 				6E6F9C0A2FD68A7200A94BEE /* DriverStatsUITests */,
 			);
-			name = DriverStatsUITests;
+			name = DrivingStatsUITests;
 			packageProductDependencies = (
 			);
 			productName = DriverStatsUITests;
-			productReference = 6E6F9C072FD68A7200A94BEE /* DriverStatsUITests.xctest */;
+			productReference = 6E6F9C072FD68A7200A94BEE /* DrivingStatsUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -186,7 +188,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 6E6F9BE92FD68A7100A94BEE /* Build configuration list for PBXProject "DriverStats" */;
+			buildConfigurationList = 6E6F9BE92FD68A7100A94BEE /* Build configuration list for PBXProject "DrivingStats" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -200,9 +202,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				6E6F9BED2FD68A7100A94BEE /* DriverStats */,
-				6E6F9BFC2FD68A7200A94BEE /* DriverStatsTests */,
-				6E6F9C062FD68A7200A94BEE /* DriverStatsUITests */,
+				6E6F9BED2FD68A7100A94BEE /* DrivingStats */,
+				6E6F9BFC2FD68A7200A94BEE /* DrivingStatsTests */,
+				6E6F9C062FD68A7200A94BEE /* DrivingStatsUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -258,12 +260,12 @@
 /* Begin PBXTargetDependency section */
 		6E6F9BFF2FD68A7200A94BEE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 6E6F9BED2FD68A7100A94BEE /* DriverStats */;
+			target = 6E6F9BED2FD68A7100A94BEE /* DrivingStats */;
 			targetProxy = 6E6F9BFE2FD68A7200A94BEE /* PBXContainerItemProxy */;
 		};
 		6E6F9C092FD68A7200A94BEE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 6E6F9BED2FD68A7100A94BEE /* DriverStats */;
+			target = 6E6F9BED2FD68A7100A94BEE /* DrivingStats */;
 			targetProxy = 6E6F9C082FD68A7200A94BEE /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -400,11 +402,17 @@
 				DEVELOPMENT_TEAM = 7WCH78FX92;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "DrivingStats-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = DrivingStats;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.navigation";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "This allows DrivingStats to use your current heading and location";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This allows DrivingStats to use your current heading and location.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -432,11 +440,17 @@
 				DEVELOPMENT_TEAM = 7WCH78FX92;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "DrivingStats-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = DrivingStats;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.navigation";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "This allows DrivingStats to use your current heading and location";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This allows DrivingStats to use your current heading and location.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = UIInterfaceOrientationPortrait;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -472,7 +486,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DriverStats.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DriverStats";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DrivingStats.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DrivingStats";
 			};
 			name = Debug;
 		};
@@ -494,7 +508,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DriverStats.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DriverStats";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DrivingStats.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DrivingStats";
 			};
 			name = Release;
 		};
@@ -541,7 +555,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		6E6F9BE92FD68A7100A94BEE /* Build configuration list for PBXProject "DriverStats" */ = {
+		6E6F9BE92FD68A7100A94BEE /* Build configuration list for PBXProject "DrivingStats" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				6E6F9C0F2FD68A7200A94BEE /* Debug */,
@@ -550,7 +564,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		6E6F9C112FD68A7200A94BEE /* Build configuration list for PBXNativeTarget "DriverStats" */ = {
+		6E6F9C112FD68A7200A94BEE /* Build configuration list for PBXNativeTarget "DrivingStats" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				6E6F9C122FD68A7200A94BEE /* Debug */,
@@ -559,7 +573,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		6E6F9C142FD68A7200A94BEE /* Build configuration list for PBXNativeTarget "DriverStatsTests" */ = {
+		6E6F9C142FD68A7200A94BEE /* Build configuration list for PBXNativeTarget "DrivingStatsTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				6E6F9C152FD68A7200A94BEE /* Debug */,
@@ -568,7 +582,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		6E6F9C172FD68A7200A94BEE /* Build configuration list for PBXNativeTarget "DriverStatsUITests" */ = {
+		6E6F9C172FD68A7200A94BEE /* Build configuration list for PBXNativeTarget "DrivingStatsUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				6E6F9C182FD68A7200A94BEE /* Debug */,

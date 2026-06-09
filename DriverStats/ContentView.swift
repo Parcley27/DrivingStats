@@ -5,57 +5,51 @@
 //  Created by Pierce Oxley on 7/6/26.
 //
 
-import SwiftUI
+import Combine
+import CoreLocation
 import SwiftData
+import SwiftUI
 
 struct ContentView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Query private var items: [Item]
+    @StateObject private var motion = MotionManager()
+    @StateObject private var location = LocationManager()
+    @State private var isTracking = false
 
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                    }
-                }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
+        TabView {
+            NavigationStack {
+                if isTracking {
+                    TrackingView(motion: motion, location: location, isTracking: $isTracking)
+                } else {
+                    ReadinessView(motion: motion, location: location, isTracking: $isTracking)
                 }
             }
-        } detail: {
-            Text("Select an item")
-        }
-    }
+            .tabItem { Label("Recording", systemImage: "gauge.with.dots.needle.67percent") }
 
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
+            NavigationStack {
+                SensorsView(motion: motion)
             }
+            .tabItem { Label("Live", systemImage: "waveform.path") }
+
+            NavigationStack {
+                HistoryView()
+            }
+            .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+        }
+        .onAppear {
+            location.requestPermissionAndStart()
+        }
+        .onChange(of: location.lastUpdate) { _, _ in
+            motion.updateFromGPS(
+                course: location.course,
+                speedMps: location.speed,
+                accuracyM: location.horizontalAccuracy,
+                coordinate: location.coordinate
+            )
         }
     }
 }
 
 #Preview {
     ContentView()
-        .modelContainer(for: Item.self, inMemory: true)
 }

@@ -1,0 +1,12 @@
+{
+  "dark" : {
+    "classicTheme" : {
+      "name" : "Default (Dark).xccolortheme"
+    }
+  },
+  "light" : {
+    "classicTheme" : {
+      "name" : "Default (Light).xccolortheme"
+    }
+  }
+}
