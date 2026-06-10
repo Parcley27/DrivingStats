@@ -97,10 +97,19 @@ struct RouteMapView: UIViewRepresentable {
             return view
         }
 
-        // Hue: 0 = red (0 deg), session max speed = green (120 deg)
+        // Red → orange (⅓) → yellow (⅔) → green (max speed)
         private func color(forSpeedMps speedMps: Double, maxMps: Double) -> UIColor {
-            let fraction = CGFloat(min(1.0, speedMps / maxMps))
-            return UIColor(hue: fraction * (120.0 / 360.0), saturation: 1, brightness: 0.9, alpha: 1)
+            let t = CGFloat(min(1.0, speedMps / maxMps))
+            // Map 3 equal segments: red→orange, orange→yellow, yellow→green
+            let hue: CGFloat
+            if t < 1/3 {
+                hue = t * 3 * (30.0 / 360.0)           // 0° → 30° (red → orange)
+            } else if t < 2/3 {
+                hue = 30.0/360.0 + (t - 1/3) * 3 * (30.0 / 360.0)  // 30° → 60° (orange → yellow)
+            } else {
+                hue = 60.0/360.0 + (t - 2/3) * 3 * (60.0 / 360.0)  // 60° → 120° (yellow → green)
+            }
+            return UIColor(hue: hue, saturation: 1, brightness: 0.9, alpha: 1)
         }
     }
 }

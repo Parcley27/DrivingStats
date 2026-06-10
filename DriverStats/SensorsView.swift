@@ -6,156 +6,100 @@
 //
 
 import Charts
-import CoreMotion
 import SwiftUI
-
-// MARK: - Sensors Tab
 
 struct SensorsView: View {
     @ObservedObject var motion: MotionManager
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                GravityBallView(gravity: motion.currentGravity, isStable: motion.isStable)
-                    .padding(.top, 8)
+            LazyVStack(spacing: 20) {
 
+                // Gravity Level: bubble + gx/gy/gz cells
+                CardSection("Gravity Level") {
+                    VStack(spacing: 12) {
+                        HStack {
+                            Spacer()
+                            GravityBubble(
+                                forward: motion.displayAcceleration?.forward ?? 0,
+                                lateral: motion.displayAcceleration?.lateral ?? 0,
+                                gmax: 0.6, size: 176,
+                                isStable: motion.isStable
+                            )
+                            Spacer()
+                        }
+                        LazyVGrid(
+                            columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3),
+                            spacing: 10
+                        ) {
+                            StatCell(label: "gx (lat)",  value: gfmt(motion.displayAcceleration?.lateral))
+                            StatCell(label: "gy (fwd)",  value: gfmt(motion.displayAcceleration?.forward))
+                            StatCell(label: "gz (vert)", value: gfmt(motion.displayAcceleration?.vertical))
+                        }
+                    }
+                }
+
+                // Acceleration Channels
+                CardSection("Acceleration Channels", note: "rolling 30 s") {
+                    VStack(spacing: 10) {
+                        AccelStrip(title: "Longitudinal · fwd + / brake −",
+                                   samples: motion.recentSamples, value: \.forward,
+                                   color: .accentColor)
+                        AccelStrip(title: "Lateral · right + / left −",
+                                   samples: motion.recentSamples, value: \.lateral,
+                                   color: .green)
+                        AccelStrip(title: "Vertical · bump + / dip −",
+                                   samples: motion.recentSamples, value: \.vertical,
+                                   color: .orange)
+                    }
+                }
+
+                // Raw Readout
+                CardSection("Raw Readout") {
+                    VStack(spacing: 0) {
+                        StatRow(label: "Sample rate", value: "50 Hz")
+                        StatRow(label: "Buffer",
+                                value: "\(motion.recentSamples.count) / 300")
+                        StatRow(label: "Stability",
+                                value: motion.isStable ? "Stable" : "Unstable")
+                        StatRow(label: "Heading status", value: headingText, isLast: true)
+                    }
+                }
+            }
+            .padding(16)
+            .padding(.bottom, 80)
+        }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .navigationTitle("Sensors")
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Live · 50 Hz")
+                    .font(.footnote).foregroundStyle(.secondary)
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(motion.isStable ? Color.green : Color.orange)
                         .frame(width: 8, height: 8)
                     Text(motion.isStable ? "Stable" : "Moving")
-                        .font(.subheadline)
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(motion.isStable ? .green : .orange)
                 }
                 .animation(.easeInOut(duration: 0.2), value: motion.isStable)
-
-                if motion.recentSamples.isEmpty {
-                    Text("Waiting for GPS heading before recording acceleration.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding()
-                } else {
-                    VStack(spacing: 16) {
-                        AccelChart(
-                            title: "Longitudinal  (positive = forward, negative = braking)",
-                            samples: motion.recentSamples,
-                            value: \.forward,
-                            color: .blue
-                        )
-                        AccelChart(
-                            title: "Lateral  (positive = right turn, negative = left turn)",
-                            samples: motion.recentSamples,
-                            value: \.lateral,
-                            color: .green
-                        )
-                        AccelChart(
-                            title: "Vertical  (positive = bump up, negative = dip down)",
-                            samples: motion.recentSamples,
-                            value: \.vertical,
-                            color: .orange
-                        )
-                    }
-                    .padding(.horizontal)
-                }
             }
-            .padding(.bottom, 16)
-        }
-        .navigationTitle("Live Sensors")
-    }
-}
-
-// MARK: - Acceleration Chart
-
-private struct AccelChart: View {
-    let title: String
-    let samples: [AccelerationSample]
-    let value: KeyPath<AccelerationSample, Double>
-    let color: Color
-
-    private var xDomain: ClosedRange<Double> {
-        guard let last = samples.last else { return 0...30 }
-        return max(0, last.elapsedSeconds - 30)...last.elapsedSeconds
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Chart {
-                ForEach(samples) { sample in
-                    LineMark(
-                        x: .value("Time (s)", sample.elapsedSeconds),
-                        y: .value("g", sample[keyPath: value])
-                    )
-                    .foregroundStyle(color)
-                    .lineStyle(StrokeStyle(lineWidth: 1.5))
-                }
-                RuleMark(y: .value("Zero", 0))
-                    .foregroundStyle(.secondary.opacity(0.35))
-                    .lineStyle(StrokeStyle(dash: [4, 4]))
-            }
-            .chartXScale(domain: xDomain)
-            .chartYScale(domain: -2.0...2.0)
-            .chartXAxisLabel("seconds")
-            .chartYAxisLabel("g")
-            .frame(height: 110)
         }
     }
-}
 
-// MARK: - Gravity Ball View
-
-/// A circular level indicator. The ball rolls toward the low side of the phone,
-/// like a bubble level in reverse. Green = stable, orange = moving.
-/// Axes: gravity.x = right, gravity.y = up (in portrait), gravity.z = toward user.
-struct GravityBallView: View {
-    let gravity: CMAcceleration?
-    let isStable: Bool
-
-    private let containerSize: CGFloat = 200
-    private let ballDiameter: CGFloat = 28
-
-    private var ballOffset: CGSize {
-        guard let g = gravity else { return .zero }
-        let maxRadius = containerSize / 2 - ballDiameter / 2 - 4
-        let rawX = CGFloat(g.x) * maxRadius
-        let rawY = CGFloat(-g.y) * maxRadius    // flip Y: gravity.y positive means phone top tilts up
-        let dist = sqrt(rawX * rawX + rawY * rawY)
-        if dist > maxRadius {
-            let scale = maxRadius / dist
-            return CGSize(width: rawX * scale, height: rawY * scale)
-        }
-        return CGSize(width: rawX, height: rawY)
+    private func gfmt(_ v: Double?) -> String {
+        guard let v else { return "—" }
+        return String(format: "%+.2f", v)
     }
 
-    private var ballColor: Color { isStable ? .green : .orange }
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(Color.secondary.opacity(0.08))
-            Circle()
-                .stroke(Color.secondary.opacity(0.25), lineWidth: 1.5)
-            Rectangle()
-                .fill(Color.secondary.opacity(0.15))
-                .frame(width: containerSize, height: 1)
-            Rectangle()
-                .fill(Color.secondary.opacity(0.15))
-                .frame(width: 1, height: containerSize)
-            Circle()
-                .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
-                .frame(width: 44, height: 44)
-            Circle()
-                .fill(ballColor)
-                .shadow(color: ballColor.opacity(0.5), radius: 8)
-                .frame(width: ballDiameter, height: ballDiameter)
-                .offset(ballOffset)
-                .animation(.spring(response: 0.15, dampingFraction: 0.7), value: ballOffset)
+    private var headingText: String {
+        switch motion.headingStatus {
+        case .noFix: return "No fix"
+        case .gpsFix(let c, _, _): return String(format: "GPS fix · %.0f°", c)
+        case .propagated(_, let cur, _): return String(format: "Gyro · %.0f°", cur)
         }
-        .frame(width: containerSize, height: containerSize)
     }
 }

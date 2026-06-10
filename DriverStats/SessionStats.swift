@@ -69,8 +69,8 @@ struct SessionStats {
     private var sumSqVertical: Double = 0
     private var sumSqNet: Double = 0
 
-    // MARK: Hard events (transitions above 0.3 g threshold)
-    static let hardThresholdG: Double = 0.3
+    // MARK: Hard events (configurable threshold, default 0.3 g)
+    var hardThresholdG: Double = 0.3
     var hardAccelCount: Int = 0
     var hardBrakingCount: Int = 0
     var hardCorneringCount: Int = 0
@@ -78,8 +78,8 @@ struct SessionStats {
     private var isInHardBraking: Bool = false
     private var isInHardCornering: Bool = false
 
-    // MARK: Surface events (vertical spikes — speedbumps, potholes, off-road)
-    static let surfaceEventThresholdG: Double = 0.4
+    // MARK: Surface events (configurable threshold, default 0.4 g)
+    var surfaceEventThresholdG: Double = 0.4
     var surfaceEventCount: Int = 0
     private var isInSurfaceEvent: Bool = false
 
@@ -148,20 +148,20 @@ struct SessionStats {
         rmsVertical = (sumSqVertical / n).squareRoot()
         rmsNet      = (sumSqNet      / n).squareRoot()
 
-        let nowHardAccel = forward > Self.hardThresholdG
+        let nowHardAccel = forward > hardThresholdG
         if nowHardAccel && !isInHardAccel { hardAccelCount += 1 }
         isInHardAccel = nowHardAccel
 
-        let nowHardBraking = forward < -Self.hardThresholdG
+        let nowHardBraking = forward < -hardThresholdG
         if nowHardBraking && !isInHardBraking { hardBrakingCount += 1 }
         isInHardBraking = nowHardBraking
 
-        let nowHardCornering = abs(lateral) > Self.hardThresholdG
+        let nowHardCornering = abs(lateral) > hardThresholdG
         if nowHardCornering && !isInHardCornering { hardCorneringCount += 1 }
         isInHardCornering = nowHardCornering
 
         // Surface events use raw vertical so they are detected regardless of suppression toggle
-        let nowSurface = abs(rawVertical) > Self.surfaceEventThresholdG
+        let nowSurface = abs(rawVertical) > surfaceEventThresholdG
         if nowSurface && !isInSurfaceEvent { surfaceEventCount += 1 }
         isInSurfaceEvent = nowSurface
     }

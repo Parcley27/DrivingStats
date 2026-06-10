@@ -46,8 +46,29 @@ class MotionManager: ObservableObject {
     /// don't contaminate longitudinal/lateral/net stats. Surface events are still counted.
     @Published var suppressVerticalEvents: Bool = true
 
+    /// When true, uses a rolling average to filter sensor spikes and road noise.
+    @Published var autoSmooth: Bool = true
+    /// Duration of the rolling average window when autoSmooth is on (seconds).
+    @Published var autoSmoothWindowSeconds: Double = 0.5
+    /// Threshold for hard acceleration / braking / cornering events (g).
+    @Published var hardThresholdG: Double = 0.3
+    /// Threshold for road-surface (bump/pothole) events (g).
+    @Published var surfaceThresholdG: Double = 0.4
+
+    private var cancellables = Set<AnyCancellable>()
+
     /// Peak events recorded during the session, available after endSession()
     private(set) var peakEvents: [PeakEvent] = []
+
+    /// All g-g scatter points for the current session (~2 Hz, no rolling limit — full drive captured)
+    private(set) var ggSamples: [GGPoint] = []
+    private var ggDownsampleTick = 0
+
+    // Reverse-drive detection: fires once per session if a ~180° course flip is seen within 45 s
+    private var initialSessionCourse: Double? = nil
+    private var initialSessionCourseTime: Date? = nil
+    private var hasAppliedReverseFlip: Bool = false
+    private let reverseDetectionWindow: TimeInterval = 45
 
     private var pendingGPS: (course: Double, speedMps: Double, accuracyM: Double)?
     private var lastFix: GPSFix?
@@ -81,17 +102,44 @@ class MotionManager: ObservableObject {
     init() {
         isAvailable = motion.isDeviceMotionAvailable
         startMotionUpdates()
+        loadPersistedSettings()
+        persistSettingsOnChange()
+    }
+
+    private func loadPersistedSettings() {
+        let ud = UserDefaults.standard
+        if let v = ud.object(forKey: "ds.autoSmooth")            as? Bool   { autoSmooth = v }
+        if let v = ud.object(forKey: "ds.autoSmoothWindow")      as? Double { autoSmoothWindowSeconds = v }
+        if let v = ud.object(forKey: "ds.hardThreshold")         as? Double { hardThresholdG = v }
+        if let v = ud.object(forKey: "ds.surfaceThreshold")      as? Double { surfaceThresholdG = v }
+        if let v = ud.object(forKey: "ds.suppressVertical")      as? Bool   { suppressVerticalEvents = v }
+    }
+
+    private func persistSettingsOnChange() {
+        let ud = UserDefaults.standard
+        $autoSmooth           .dropFirst().sink { ud.set($0, forKey: "ds.autoSmooth") }           .store(in: &cancellables)
+        $autoSmoothWindowSeconds.dropFirst().sink { ud.set($0, forKey: "ds.autoSmoothWindow") }   .store(in: &cancellables)
+        $hardThresholdG       .dropFirst().sink { ud.set($0, forKey: "ds.hardThreshold") }        .store(in: &cancellables)
+        $surfaceThresholdG    .dropFirst().sink { ud.set($0, forKey: "ds.surfaceThreshold") }     .store(in: &cancellables)
+        $suppressVerticalEvents.dropFirst().sink { ud.set($0, forKey: "ds.suppressVertical") }    .store(in: &cancellables)
     }
 
     // MARK: - Session management
 
     func startSession() {
         liveStats = SessionStats()
+        liveStats.hardThresholdG = hardThresholdG
+        liveStats.surfaceEventThresholdG = surfaceThresholdG
         sessionStats = SessionStats()
         isSessionActive = true
         accelSmoothing = []
         peakTracker = [:]
         peakEvents = []
+        ggSamples = []
+        ggDownsampleTick = 0
+        initialSessionCourse = nil
+        initialSessionCourseTime = nil
+        hasAppliedReverseFlip = false
         prevEffective = nil
         prevTimestamp = nil
     }
@@ -142,6 +190,24 @@ class MotionManager: ObservableObject {
               accuracyM < LocationManager.maxReliableAccuracyM
         else { return }
         pendingGPS = (course: course, speedMps: speedMps, accuracyM: accuracyM)
+
+        // Reverse-drive detection: if course flips ~180° within the first 45 s, the driver
+        // started in reverse. Flip all accumulated data and correct going forward.
+        if isSessionActive && !hasAppliedReverseFlip {
+            if initialSessionCourse == nil {
+                initialSessionCourse = course
+                initialSessionCourseTime = Date()
+            } else if let initial = initialSessionCourse, let initTime = initialSessionCourseTime {
+                if Date().timeIntervalSince(initTime) < reverseDetectionWindow {
+                    let delta = abs(course - initial)
+                    if min(delta, 360 - delta) > 150 {
+                        applyReverseFlip()
+                        hasAppliedReverseFlip = true
+                        initialSessionCourse = course  // Update baseline to new direction
+                    }
+                }
+            }
+        }
     }
 
 #if DEBUG
@@ -213,14 +279,15 @@ class MotionManager: ObservableObject {
             headingStatus = .propagated(baseCourse: fix.course, currentCourse: propagatedCourse, ageSeconds: fixAge)
         }
 
-        // 5-sample moving average to reduce high-frequency sensor noise
+        // Rolling average: 5 samples (0.1 s) base, or user-configured window when autoSmooth is on
+        let effectiveSmoothN = autoSmooth ? max(1, Int(autoSmoothWindowSeconds * 50)) : smoothingN
         let rawVec = SIMD3<Double>(
             vecDot(accelWorld, forwardNEU),
             vecDot(accelWorld, right),
             vecDot(accelWorld, up)
         )
         accelSmoothing.append(rawVec)
-        if accelSmoothing.count > smoothingN { accelSmoothing.removeFirst() }
+        if accelSmoothing.count > effectiveSmoothN { accelSmoothing.removeFirst() }
         let sv = accelSmoothing.reduce(SIMD3<Double>.zero, +) / Double(accelSmoothing.count)
 
         let rawVertical = rawVec.z
@@ -279,8 +346,43 @@ class MotionManager: ObservableObject {
             ))
             graphSampleID += 1
             if recentSamples.count > graphBufferSize { recentSamples.removeFirst() }
-            if isSessionActive { sessionStats = liveStats }
+            if isSessionActive {
+                sessionStats = liveStats
+                ggDownsampleTick += 1
+                if ggDownsampleTick % 5 == 0 {
+                    ggSamples.append(GGPoint(lat: sv.y, fwd: sv.x))
+                    // No rolling limit — full session captured for complete envelope
+                }
+            }
         }
+    }
+
+    // MARK: - Reverse-drive correction
+
+    /// Flips the forward/lateral coordinate system when a reverse-start is detected.
+    /// Swaps signed peaks, event counts, and all buffered samples so the rest of the
+    /// drive is recorded with the correct heading.
+    private func applyReverseFlip() {
+        // Signed peak stats: swap forward ↔ braking and right ↔ left (both axes invert)
+        (liveStats.peakForward,      liveStats.peakBraking)      = (-liveStats.peakBraking,      -liveStats.peakForward)
+        (liveStats.peakJerkForward,  liveStats.peakJerkBraking)  = (-liveStats.peakJerkBraking,  -liveStats.peakJerkForward)
+        (liveStats.peakRight,        liveStats.peakLeft)          = (-liveStats.peakLeft,          -liveStats.peakRight)
+        (liveStats.peakJerkRight,    liveStats.peakJerkLeft)      = (-liveStats.peakJerkLeft,      -liveStats.peakJerkRight)
+        (liveStats.hardAccelCount,   liveStats.hardBrakingCount)  = (liveStats.hardBrakingCount,   liveStats.hardAccelCount)
+
+        // Swap peak-event map entries so map pins land on the right event type
+        let accel = peakTracker[.peakAccel]; peakTracker[.peakAccel] = peakTracker[.peakBraking]; peakTracker[.peakBraking] = accel
+        let right = peakTracker[.peakRight]; peakTracker[.peakRight] = peakTracker[.peakLeft];    peakTracker[.peakLeft]    = right
+
+        // Flip sign of all buffered display samples
+        recentSamples = recentSamples.map {
+            AccelerationSample(id: $0.id, elapsedSeconds: $0.elapsedSeconds,
+                               forward: -$0.forward, lateral: -$0.lateral, vertical: $0.vertical)
+        }
+        ggSamples = ggSamples.map { GGPoint(lat: -$0.lat, fwd: -$0.fwd, isPeak: $0.isPeak) }
+
+        // Push corrected stats to the published property immediately
+        sessionStats = liveStats
     }
 
     // MARK: - Math helpers

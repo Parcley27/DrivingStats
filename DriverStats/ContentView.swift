@@ -24,7 +24,7 @@ struct ContentView: View {
                     ReadinessView(motion: motion, location: location, isTracking: $isTracking)
                 }
             }
-            .tabItem { Label("Recording", systemImage: "gauge.with.dots.needle.67percent") }
+            .tabItem { Label("Record", systemImage: "gauge.with.dots.needle.67percent") }
 
             NavigationStack {
                 SensorsView(motion: motion)
@@ -35,7 +35,13 @@ struct ContentView: View {
                 HistoryView()
             }
             .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+
+            NavigationStack {
+                SettingsView(motion: motion)
+            }
+            .tabItem { Label("Settings", systemImage: "gearshape.fill") }
         }
+        .tint(.accentColor)
         .onAppear {
             location.requestPermissionAndStart()
         }

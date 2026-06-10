@@ -74,6 +74,9 @@ final class DriveSession {
     // MARK: Surface events
     var surfaceEventCount: Int = 0
 
+    // MARK: Smoothness score (0–100)
+    var smoothnessScore: Double = 0
+
     // MARK: Route (parallel arrays)
     var routeLatitudes: [Double] = []
     var routeLongitudes: [Double] = []
@@ -126,6 +129,11 @@ final class DriveSession {
         peakNetJerk = s.peakNetJerk
         avgNetJerk = s.avgNetJerk
         surfaceEventCount = s.surfaceEventCount
+        let hardEvents = Double(s.hardAccelCount + s.hardBrakingCount + s.hardCorneringCount)
+        smoothnessScore = max(0, min(100, 100
+            - 4  * hardEvents
+            - 30 * min(max(s.rmsNet, 0), 1)
+            - 8  * min(max(s.peakNetJerk / 10, 0), 1)))
         routeLatitudes = result.track.map(\.coordinate.latitude)
         routeLongitudes = result.track.map(\.coordinate.longitude)
         routeSpeeds = result.track.map(\.speedMps)

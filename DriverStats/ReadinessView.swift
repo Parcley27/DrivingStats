@@ -21,83 +21,172 @@ struct ReadinessView: View {
 #endif
 
     var body: some View {
-        List {
-            Section("Motion Sensors") {
-                StatusRow(
-                    label: "Accelerometer and gyroscope",
-                    value: motion.isAvailable ? "Available" : "Not available"
-                )
-            }
+        ScrollView {
+            LazyVStack(spacing: 20) {
 
-            Section("GPS") {
-                StatusRow(label: "Authorization", value: authorizationText)
-                StatusRow(label: "Horizontal accuracy", value: accuracyText)
-                StatusRow(label: "Speed", value: speedText)
-                StatusRow(label: "Course", value: courseText)
-                StatusRow(
-                    label: "Course reliable",
-                    value: location.isCourseReliable
-                        ? "Yes"
-                        : "No (need speed above \(String(format: "%.0f", LocationManager.minReliableSpeedMps)) m/s and accuracy below \(String(format: "%.0f", LocationManager.maxReliableAccuracyM)) m)"
-                )
-            }
+                // Signal Acquisition — signal bars + numeric accuracy + speed
+                CardSection("Signal Acquisition") {
+                    HStack(spacing: 20) {
+                        // Signal bars (more bars = better accuracy)
+                        VStack(spacing: 6) {
+                            HStack(alignment: .bottom, spacing: 5) {
+                                ForEach(0..<4) { i in
+                                    let thresholds: [Double] = [30, 20, 10, 5]
+                                    let lit = location.horizontalAccuracy > 0
+                                             && location.horizontalAccuracy <= thresholds[i]
+                                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                                        .fill(lit ? accuracyZone : Color(.systemFill))
+                                        .frame(width: 10, height: CGFloat(14 + i * 10))
+                                        .animation(.easeInOut(duration: 0.3), value: lit)
+                                }
+                            }
+                            Text(location.horizontalAccuracy > 0
+                                 ? String(format: "%.1f m", location.horizontalAccuracy)
+                                 : "No fix")
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(accuracyZone)
+                        }
 
-            Section("Heading") {
-                StatusRow(label: "Status", value: headingStatusText)
-            }
+                        Divider().frame(height: 52)
 
-            Section(
-                header: Text("Session Settings"),
-                footer: Text("When on, vertical spikes from road bumps and potholes are excluded from acceleration and jerk stats. They are still counted as surface events.")
-            ) {
-                Toggle("Exclude road surface events from stats", isOn: $motion.suppressVerticalEvents)
-            }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("GPS accuracy").font(.caption).foregroundStyle(.secondary)
+                            Text(accuracyDescription)
+                                .font(.headline)
+                                .foregroundStyle(accuracyZone)
+                        }
+
+                        Spacer()
+
+                        VStack(alignment: .trailing, spacing: 3) {
+                            Text("Speed").font(.caption).foregroundStyle(.secondary)
+                            Text(location.speed > 0
+                                 ? String(format: "%.0f km/h", location.speed * 3.6)
+                                 : "—")
+                                .font(.system(.headline, design: .monospaced))
+                                .monospacedDigit()
+                        }
+                    }
+                }
+
+                // Sensors: 2-col grid of StatusLamps
+                SectionHeader("Sensors")
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                    StatusLamp(state: motion.isAvailable ? .ok : .bad, label: "Accelerometer", detail: "±8 g · 50 Hz")
+                    StatusLamp(state: motion.isAvailable ? .ok : .bad, label: "Gyroscope", detail: "50 Hz")
+                    StatusLamp(state: gpsAccessState, label: "GPS access", detail: gpsAccessDetail)
+                    StatusLamp(state: motion.hasValidHeading ? .ok : .warn, label: "Heading lock", detail: "Needs ≥ 2 m/s")
+                }
+
+                // GPS Detail
+                CardSection("GPS Detail") {
+                    VStack(spacing: 0) {
+                        StatRow(label: "Horizontal accuracy", value: accuracyText)
+                        StatRow(label: "Speed",               value: speedText)
+                        StatRow(label: "Course",              value: courseText)
+                        StatRow(label: "Altitude",            value: altitudeText, isLast: true)
+                    }
+                }
+
 
 #if DEBUG
-            Section(
-                header: Text("Debug"),
-                footer: Text("Spoofed fixes are injected at 10 m/s, 5 m accuracy. Only available in DEBUG builds.")
-            ) {
-                Toggle("Spoof GPS heading", isOn: $spoofGPSEnabled)
-                if spoofGPSEnabled {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Course: \(String(format: "%.0f", spoofCourse)) degrees clockwise from north")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Slider(value: $spoofCourse, in: 0...359)
+                CardSection("Debug") {
+                    VStack(spacing: 0) {
+                        Toggle("Spoof GPS heading", isOn: $spoofGPSEnabled).font(.body)
+                        if spoofGPSEnabled {
+                            Divider().padding(.vertical, 6)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Course: \(String(format: "%.0f", spoofCourse))°")
+                                    .font(.system(.footnote, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                                Slider(value: $spoofCourse, in: 0...359)
+                            }
+                            Text("Injected at 10 m/s, 5 m accuracy. DEBUG only.")
+                                .font(.caption).foregroundStyle(.secondary).padding(.top, 2)
+                        }
                     }
-                    .padding(.vertical, 4)
                 }
-            }
 #endif
+            }
+            .padding(16)
+            .padding(.bottom, 8)
         }
-        .navigationTitle("Driving Stats")
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .navigationTitle("Ready to Record")
+        .safeAreaInset(edge: .bottom) {
+            Button(action: beginCountdown) {
+                VStack(spacing: 2) {
+                    Text(countdown.map { "Starting in \($0)…" } ?? "Start Recording").font(.headline)
+                    if countdown == nil {
+                        Text("3-second countdown").font(.caption).foregroundStyle(.white.opacity(0.85))
+                    }
+                }
+                .frame(maxWidth: .infinity).padding(.vertical, 4)
+            }
+            .buttonStyle(.borderedProminent).controlSize(.large).tint(.accentColor)
+            .disabled(!location.hasValidFix || countdown != nil)
+            .padding(.horizontal, 16).padding(.vertical, 12)
+            .background(.regularMaterial)
+        }
 #if DEBUG
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
             guard spoofGPSEnabled else { return }
             motion.injectSpoofGPS(course: spoofCourse)
         }
-        .onChange(of: spoofGPSEnabled) { _, isOn in
-            if isOn { motion.injectSpoofGPS(course: spoofCourse) }
-        }
-        .onChange(of: spoofCourse) { _, newCourse in
-            guard spoofGPSEnabled else { return }
-            motion.injectSpoofGPS(course: newCourse)
-        }
+        .onChange(of: spoofGPSEnabled) { _, isOn in if isOn { motion.injectSpoofGPS(course: spoofCourse) } }
+        .onChange(of: spoofCourse) { _, c in guard spoofGPSEnabled else { return }; motion.injectSpoofGPS(course: c) }
 #endif
-        .safeAreaInset(edge: .bottom) {
-            Button(action: beginCountdown) {
-                Text(countdown.map { "Starting in \($0)..." } ?? "Start Tracking")
-                    .frame(maxWidth: .infinity)
-            }
-            .disabled(!location.hasValidFix || countdown != nil)
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(.regularMaterial)
+    }
+
+    // MARK: - Helpers
+
+    private var accuracyZone: Color {
+        guard location.horizontalAccuracy > 0 else { return Color(.tertiaryLabel) }
+        return location.horizontalAccuracy <= 5 ? .green
+             : location.horizontalAccuracy <= 15 ? .orange : .red
+    }
+
+    private var accuracyDescription: String {
+        guard location.horizontalAccuracy > 0 else { return "No fix" }
+        if location.horizontalAccuracy <= 5  { return "Excellent" }
+        if location.horizontalAccuracy <= 15 { return "Good" }
+        if location.horizontalAccuracy <= 30 { return "Fair" }
+        return "Poor"
+    }
+
+    private var gpsAccessState: LampState {
+        switch location.authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways: return location.hasValidFix ? .ok : .warn
+        case .notDetermined: return .off
+        default: return .bad
         }
     }
+
+    private var gpsAccessDetail: String {
+        switch location.authorizationStatus {
+        case .authorizedWhenInUse: return "When in use"
+        case .authorizedAlways:    return "Always"
+        case .notDetermined:       return "Not requested"
+        default:                   return "Denied"
+        }
+    }
+
+    private var accuracyText: String {
+        guard location.horizontalAccuracy >= 0 else { return "No fix" }
+        return String(format: "%.1f m", location.horizontalAccuracy)
+    }
+
+    private var speedText: String {
+        guard location.speed >= 0 else { return "No fix" }
+        return String(format: "%.1f km/h", location.speed * 3.6)
+    }
+
+    private var courseText: String {
+        guard location.course >= 0 else { return "No heading" }
+        return String(format: "%.0f°", location.course)
+    }
+
+    private var altitudeText: String { String(format: "%.0f m", location.altitudeM) }
 
     private func beginCountdown() {
         Task {
@@ -109,45 +198,6 @@ struct ReadinessView: View {
             location.startTrack()
             motion.startSession()
             isTracking = true
-        }
-    }
-
-    // MARK: - Display text helpers
-
-    private var authorizationText: String {
-        switch location.authorizationStatus {
-        case .notDetermined:       return "Not requested yet"
-        case .denied:              return "Denied - enable location access in Settings"
-        case .restricted:          return "Restricted by device policy"
-        case .authorizedWhenInUse: return "Authorized (when in use only - screen off will pause GPS)"
-        case .authorizedAlways:    return "Authorized (always - screen off supported)"
-        @unknown default:          return "Unknown status"
-        }
-    }
-
-    private var accuracyText: String {
-        guard location.horizontalAccuracy >= 0 else { return "No fix" }
-        return String(format: "%.1f m", location.horizontalAccuracy)
-    }
-
-    private var speedText: String {
-        guard location.speed >= 0 else { return "No fix" }
-        return String(format: "%.1f m/s  (%.1f km/h)", location.speed, location.speed * 3.6)
-    }
-
-    private var courseText: String {
-        guard location.course >= 0 else { return "No fix" }
-        return String(format: "%.1f degrees clockwise from north", location.course)
-    }
-
-    private var headingStatusText: String {
-        switch motion.headingStatus {
-        case .noFix:
-            return "No heading established. Drive above \(String(format: "%.0f", LocationManager.minReliableSpeedMps)) m/s to get a GPS course."
-        case .gpsFix(let course, let speed, let accuracy):
-            return String(format: "GPS: %.1f deg, %.1f m/s, %.1f m accuracy", course, speed, accuracy)
-        case .propagated(let base, let current, let age):
-            return String(format: "Gyro-propagated from GPS base %.1f deg. Current estimate: %.1f deg. GPS age: %.1f s.", base, current, age)
         }
     }
 }
