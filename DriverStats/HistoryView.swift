@@ -14,6 +14,7 @@ import SwiftUI
 struct HistoryView: View {
     @Query(sort: \DriveSession.startDate, order: .reverse) private var sessions: [DriveSession]
     @Environment(\.modelContext) private var modelContext
+    @State private var showingAllDrivesMap = false
 
     var body: some View {
         Group {
@@ -126,8 +127,29 @@ struct HistoryView: View {
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
         .navigationTitle("History")
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    showingAllDrivesMap = true
+                } label: {
+                    Image(systemName: "map")
+                }
+                .disabled(sessions.isEmpty)
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 EditButton().disabled(sessions.isEmpty)
+            }
+        }
+        .fullScreenCover(isPresented: $showingAllDrivesMap) {
+            NavigationStack {
+                AllDrivesMapView(sessions: sessions)
+                    .ignoresSafeArea(edges: .bottom)
+                    .navigationTitle("All Drives")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Done") { showingAllDrivesMap = false }
+                        }
+                    }
             }
         }
     }
