@@ -6,6 +6,7 @@
 //
 
 import Charts
+import CoreLocation
 import MapKit
 import SwiftData
 import SwiftUI
@@ -50,7 +51,34 @@ struct SessionResultsView: View {
             .onAppear {
                 guard !didSave else { return }
                 didSave = true
-                modelContext.insert(DriveSession(result: result))
+                let session = DriveSession(result: result)
+                modelContext.insert(session)
+                guard let first = result.track.first, let last = result.track.last,
+                      result.track.count >= 2 else { return }
+                let startCoord = first.coordinate
+                let endCoord = last.coordinate
+                Task {
+                    await geocodePlaceNames(session: session, start: startCoord, end: endCoord)
+                }
+            }
+        }
+    }
+
+    @MainActor
+    private func geocodePlaceNames(session: DriveSession,
+                                   start: CLLocationCoordinate2D,
+                                   end: CLLocationCoordinate2D) async {
+        session.startPlaceName = await reverseName(coordinate: start)
+        session.endPlaceName = await reverseName(coordinate: end)
+    }
+
+    private func reverseName(coordinate: CLLocationCoordinate2D) async -> String? {
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        guard let request = MKReverseGeocodingRequest(location: location) else { return nil }
+        return await withCheckedContinuation { continuation in
+            request.getMapItems { items, _ in
+                let item = items?.first
+                continuation.resume(returning: item?.addressRepresentations?.cityName)
             }
         }
     }
@@ -69,7 +97,7 @@ struct DriveSessionView: View {
             stats: stats,
             ggSamples: session.ggPointsStored
         )
-        .navigationTitle("Drive Summary")
+        .navigationTitle(session.routeLabel ?? "Drive Summary")
         .navigationBarTitleDisplayMode(.inline)
     }
 }

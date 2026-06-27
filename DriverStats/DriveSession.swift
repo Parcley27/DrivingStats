@@ -83,6 +83,10 @@ final class DriveSession {
     var routeSpeeds: [Double] = []
     var routeAltitudes: [Double] = []
 
+    // MARK: Place names (reverse-geocoded after save)
+    var startPlaceName: String?
+    var endPlaceName: String?
+
     // MARK: g-g scatter (parallel arrays — lateral, forward in g)
     var ggScatterLat: [Double] = []
     var ggScatterFwd: [Double] = []
@@ -167,6 +171,15 @@ final class DriveSession {
     var ggPointsStored: [GGPoint] {
         guard ggScatterLat.count == ggScatterFwd.count else { return [] }
         return zip(ggScatterLat, ggScatterFwd).map { GGPoint(lat: $0, fwd: $1) }
+    }
+
+    /// "Suburb → Suburb" label for the route; falls back to nil so callers can use the date.
+    var routeLabel: String? {
+        guard let start = startPlaceName else { return nil }
+        if let end = endPlaceName, end != start {
+            return "\(start) → \(end)"
+        }
+        return start
     }
 
     /// Approximate in-database size

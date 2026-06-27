@@ -201,6 +201,10 @@ private struct SessionCardView: View {
         return Int(max(0, min(100, v)))
     }
 
+    private var primaryLabel: String {
+        session.routeLabel ?? session.startDate.formatted(date: .abbreviated, time: .shortened)
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             // Mini route map thumbnail
@@ -217,8 +221,9 @@ private struct SessionCardView: View {
 
             VStack(alignment: .leading, spacing: 7) {
                 HStack(alignment: .center) {
-                    Text(session.startDate.formatted(date: .abbreviated, time: .shortened))
+                    Text(primaryLabel)
                         .font(.system(size: 14.5, weight: .semibold))
+                        .lineLimit(1)
                     Spacer()
                     if showDrivingScore {
                         ScoreRing(value: score, size: 34)
