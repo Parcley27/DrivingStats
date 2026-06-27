@@ -18,12 +18,23 @@ final class PeakAnnotation: NSObject, MKAnnotation {
     init(_ event: PeakEvent) { self.event = event }
 }
 
+// MARK: - Scrub position annotation
+
+final class ScrubAnnotation: NSObject, MKAnnotation {
+    @objc dynamic var coordinate: CLLocationCoordinate2D
+    init(_ coord: CLLocationCoordinate2D) { self.coordinate = coord }
+}
+
 // MARK: - Map view
 
 struct RouteMapView: UIViewRepresentable {
     let track: [RoutePoint]
     var peakEvents: [PeakEvent] = []
     var thumbnailMode: Bool = false
+    var scrubCoordinate: CLLocationCoordinate2D? = nil
+    /// Called with a 0–1 fraction when the user long-presses and drags along the route,
+    /// or nil when the gesture ends. Ignored in thumbnailMode.
+    var onScrubFractionChanged: ((Double?) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator() }
 
@@ -33,11 +44,24 @@ struct RouteMapView: UIViewRepresentable {
         map.showsUserLocation = false
         map.register(MKMarkerAnnotationView.self,
                      forAnnotationViewWithReuseIdentifier: MKMapViewDefaultAnnotationViewReuseIdentifier)
+        map.register(MKMarkerAnnotationView.self,
+                     forAnnotationViewWithReuseIdentifier: "scrub")
+
+        // Long-press + drag to scrub the route
+        let scrubGesture = UILongPressGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleScrubGesture(_:)))
+        scrubGesture.minimumPressDuration = 0.25
+        scrubGesture.allowableMovement = 10_000   // allow free movement after press fires
+        map.addGestureRecognizer(scrubGesture)
+
         return map
     }
 
     func updateUIView(_ map: MKMapView, context: Context) {
+        context.coordinator.onScrubFractionChanged = onScrubFractionChanged
         context.coordinator.setup(map: map, track: track, peakEvents: peakEvents, thumbnailMode: thumbnailMode)
+        context.coordinator.updateScrub(map: map, coordinate: scrubCoordinate)
     }
 
     class Coordinator: NSObject, MKMapViewDelegate {
@@ -48,6 +72,9 @@ struct RouteMapView: UIViewRepresentable {
         private(set) var thumbnailMode: Bool = false
         // parallel to the polyline currently on the map
         var speedsAtPoints: [Double] = []
+
+        private var scrubAnnotation: ScrubAnnotation? = nil
+        var onScrubFractionChanged: ((Double?) -> Void)? = nil
 
         func setup(map: MKMapView, track: [RoutePoint], peakEvents: [PeakEvent], thumbnailMode: Bool) {
             let sig = trackSignature(track, thumbnail: thumbnailMode)
@@ -62,6 +89,8 @@ struct RouteMapView: UIViewRepresentable {
 
             map.removeOverlays(map.overlays)
             map.removeAnnotations(map.annotations)
+            // scrubAnnotation was on the map; updateScrub will re-add it after setup returns
+            scrubAnnotation = nil
             guard track.count >= 2 else { return }
 
             for event in peakEvents {
@@ -69,7 +98,6 @@ struct RouteMapView: UIViewRepresentable {
             }
 
             if thumbnailMode {
-                // Caller already downsamples thumbnail tracks — render as-is
                 placePolyline(sampled: track, on: map)
             } else {
                 // Use a large span so the first render is cheap; regionDidChangeAnimated
@@ -84,6 +112,51 @@ struct RouteMapView: UIViewRepresentable {
                 map.setVisibleMapRect(overlay.boundingMapRect, edgePadding: padding, animated: false)
             }
         }
+
+        func updateScrub(map: MKMapView, coordinate: CLLocationCoordinate2D?) {
+            if let coord = coordinate {
+                if let existing = scrubAnnotation {
+                    existing.coordinate = coord
+                } else {
+                    let ann = ScrubAnnotation(coord)
+                    scrubAnnotation = ann
+                    map.addAnnotation(ann)
+                }
+            } else if let existing = scrubAnnotation {
+                map.removeAnnotation(existing)
+                scrubAnnotation = nil
+            }
+        }
+
+        // MARK: - Route scrub gesture
+
+        @objc func handleScrubGesture(_ gesture: UILongPressGestureRecognizer) {
+            guard !thumbnailMode, !fullTrack.isEmpty,
+                  let map = gesture.view as? MKMapView else { return }
+
+            switch gesture.state {
+            case .began, .changed:
+                let touchPoint = gesture.location(in: map)
+                let coord = map.convert(touchPoint, toCoordinateFrom: map)
+                // Find nearest route point by squared lat/lon distance (fast, accurate enough)
+                var bestIdx = 0
+                var bestDist = Double.infinity
+                for (i, pt) in fullTrack.enumerated() {
+                    let dlat = pt.coordinate.latitude - coord.latitude
+                    let dlon = pt.coordinate.longitude - coord.longitude
+                    let d = dlat * dlat + dlon * dlon
+                    if d < bestDist { bestDist = d; bestIdx = i }
+                }
+                let frac = Double(bestIdx) / Double(max(1, fullTrack.count - 1))
+                onScrubFractionChanged?(frac)
+            case .ended, .cancelled, .failed:
+                onScrubFractionChanged?(nil)
+            default:
+                break
+            }
+        }
+
+        // MARK: - MKMapViewDelegate
 
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             guard !thumbnailMode, fullTrack.count >= 2 else { return }
@@ -124,6 +197,16 @@ struct RouteMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            if annotation is ScrubAnnotation {
+                let view = mapView.dequeueReusableAnnotationView(
+                    withIdentifier: "scrub", for: annotation) as! MKMarkerAnnotationView
+                view.annotation = annotation
+                view.canShowCallout = false
+                view.animatesWhenAdded = false
+                view.markerTintColor = .systemBlue
+                view.glyphText = "●"
+                return view
+            }
             guard let peakAnn = annotation as? PeakAnnotation else { return nil }
             let view = mapView.dequeueReusableAnnotationView(
                 withIdentifier: MKMapViewDefaultAnnotationViewReuseIdentifier,
@@ -156,9 +239,6 @@ struct RouteMapView: UIViewRepresentable {
             map.addOverlay(polyline, level: .aboveRoads)
         }
 
-        // Same proportional formula as AllDrivesMapView:
-        // target = max(minFloor, totalPoints / proportionalDivisor)
-        // step   = max(1, totalPoints / target)
         private func computeStep(totalPoints: Int, span: MKCoordinateSpan) -> Int {
             let deg = max(span.latitudeDelta, span.longitudeDelta)
             let divisor: Int

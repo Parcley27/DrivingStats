@@ -41,7 +41,9 @@ struct SessionResultsView: View {
                 peakEvents: result.peakEvents,
                 stats: result.stats,
                 ggSamples: result.ggSamples,
-                lapSplits: result.lapSplits
+                lapSplits: result.lapSplits,
+                rawFwd: result.rawFwd,
+                rawLat: result.rawLat
             )
             .navigationTitle("Drive Summary")
             .navigationBarTitleDisplayMode(.inline)
@@ -99,7 +101,9 @@ struct DriveSessionView: View {
             stats: stats,
             ggSamples: session.ggPointsStored,
             lapSplits: session.lapSplitSeconds,
-            dataSize: session.estimatedSizeBytes
+            dataSize: session.estimatedSizeBytes,
+            rawFwd: session.rawFwd,
+            rawLat: session.rawLat
         )
         .navigationTitle(session.routeLabel ?? "Drive Summary")
         .navigationBarTitleDisplayMode(.inline)
@@ -115,13 +119,22 @@ private struct DriveSessionContent: View {
     let ggSamples: [GGPoint]
     var lapSplits: [Double] = []
     var dataSize: Int? = nil
+    var rawFwd: [Float] = []
+    var rawLat: [Float] = []
 
     @AppStorage("ds.showDrivingScore") private var showDrivingScore = true
     @State private var showingFullscreenMap = false
+    @State private var scrubFraction: Double? = nil
 
     private let G = 9.80665
 
     private var gmax: Double { max(stats.peakNetAccel * 1.3, 0.5) }
+
+    private var scrubCoordinate: CLLocationCoordinate2D? {
+        guard let frac = scrubFraction, track.count >= 2 else { return nil }
+        let idx = min(track.count - 1, max(0, Int(frac * Double(track.count))))
+        return track[idx].coordinate
+    }
 
     private var smoothnessScore: Int {
         let movingMin = max(1.0, stats.movingTimeSeconds / 60)
@@ -159,7 +172,9 @@ private struct DriveSessionContent: View {
             if track.count >= 2 {
                 Section {
                     VStack(spacing: 0) {
-                        RouteMapView(track: track, peakEvents: peakEvents)
+                        RouteMapView(track: track, peakEvents: peakEvents,
+                                     scrubCoordinate: scrubCoordinate,
+                                     onScrubFractionChanged: { scrubFraction = $0 })
                             .frame(height: 200)
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                             .overlay(alignment: .topTrailing) {
@@ -175,15 +190,20 @@ private struct DriveSessionContent: View {
                 }
                 .sheet(isPresented: $showingFullscreenMap) {
                     NavigationStack {
-                        RouteMapView(track: track, peakEvents: peakEvents)
-                            .ignoresSafeArea(edges: .bottom)
-                            .navigationTitle("Route")
-                            .navigationBarTitleDisplayMode(.inline)
-                            .toolbar {
-                                ToolbarItem(placement: .navigationBarTrailing) {
-                                    Button("Done") { showingFullscreenMap = false }
-                                }
+                        FullscreenRouteView(
+                            track: track,
+                            peakEvents: peakEvents,
+                            rawFwd: rawFwd,
+                            rawLat: rawLat
+                        )
+                        .ignoresSafeArea(edges: .bottom)
+                        .navigationTitle("Route")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button("Done") { showingFullscreenMap = false }
                             }
+                        }
                     }
                 }
             }
@@ -213,21 +233,52 @@ private struct DriveSessionContent: View {
                         HStack {
                             Text("Speed over time").font(.caption).foregroundStyle(.secondary)
                             Spacer()
-                            Text(String(format: "max %.0f km/h", speeds.max() ?? 0))
-                                .font(.system(.caption2, design: .monospaced)).foregroundStyle(.tertiary)
+                            if let frac = scrubFraction, !speeds.isEmpty {
+                                let idx = min(speeds.count - 1, max(0, Int(frac * Double(speeds.count))))
+                                Text(String(format: "%.0f km/h", speeds[idx]))
+                                    .font(.system(.caption2, design: .monospaced))
+                                    .foregroundStyle(Color.accentColor)
+                            } else {
+                                Text(String(format: "max %.0f km/h", speeds.max() ?? 0))
+                                    .font(.system(.caption2, design: .monospaced)).foregroundStyle(.tertiary)
+                            }
                         }
-                        Sparkline(data: speeds, color: .accentColor, showFill: true)
+                        ScrubSpeedChart(data: speeds, color: .accentColor, showFill: true,
+                                        scrubFraction: $scrubFraction)
+                        if let frac = scrubFraction, !rawFwd.isEmpty, rawFwd.count == rawLat.count {
+                            let rawIdx = min(rawFwd.count - 1, max(0, Int(frac * Double(rawFwd.count))))
+                            HStack(spacing: 4) {
+                                Text(String(format: "%+.2f g", Double(rawFwd[rawIdx])))
+                                    .foregroundStyle(.blue)
+                                Text("fwd").foregroundStyle(.tertiary)
+                                Text("·").foregroundStyle(.quaternary)
+                                Text(String(format: "%+.2f g", Double(rawLat[rawIdx])))
+                                    .foregroundStyle(.orange)
+                                Text("lat").foregroundStyle(.tertiary)
+                            }
+                            .font(.system(.caption2, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .center)
+                            .padding(.top, 1)
+                        }
                     }
-                    let alts = track.map { $0.altitudeM }
+                    let alts = smoothElevationGlitches(track.map { $0.altitudeM })
                     if alts.contains(where: { $0 != 0 }) {
                         VStack(alignment: .leading, spacing: 3) {
                             HStack {
                                 Text("Elevation").font(.caption).foregroundStyle(.secondary)
                                 Spacer()
-                                Text(String(format: "+%.0f / −%.0f m", elevGain(alts), elevLoss(alts)))
-                                    .font(.system(.caption2, design: .monospaced)).foregroundStyle(.tertiary)
+                                if let frac = scrubFraction, !alts.isEmpty {
+                                    let idx = min(alts.count - 1, max(0, Int(frac * Double(alts.count))))
+                                    Text(String(format: "%.0f m", alts[idx]))
+                                        .font(.system(.caption2, design: .monospaced))
+                                        .foregroundStyle(.green)
+                                } else {
+                                    Text(String(format: "+%.0f / −%.0f m", elevGain(alts), elevLoss(alts)))
+                                        .font(.system(.caption2, design: .monospaced)).foregroundStyle(.tertiary)
+                                }
                             }
-                            Sparkline(data: alts, color: .green, showFill: true)
+                            ScrubSpeedChart(data: alts, color: .green, showFill: true,
+                                            zeroBased: false, scrubFraction: $scrubFraction)
                         }
                     }
                 }
@@ -437,5 +488,201 @@ private struct DriveSessionContent: View {
         var l = 0.0
         for i in 1..<alts.count where alts[i] < alts[i - 1] { l += alts[i - 1] - alts[i] }
         return l
+    }
+}
+
+// MARK: - Elevation glitch suppression
+
+/// Removes transient sensor spikes where altitude deviates by more than `threshold` metres
+/// from the preceding value AND recovers to within `threshold` metres within `windowSize`
+/// samples. The affected samples are replaced with linear interpolation between the last
+/// clean value before the spike and the first clean value after it.
+private func smoothElevationGlitches(_ alts: [Double],
+                                      threshold: Double = 15.0,
+                                      windowSize: Int = 10) -> [Double] {
+    guard alts.count > 2 else { return alts }
+    var result = alts
+    var i = 1
+    while i < result.count {
+        let baseline = result[i - 1]
+        guard abs(result[i] - baseline) > threshold else { i += 1; continue }
+        // Spike detected — scan ahead for recovery within windowSize samples
+        let limit = min(i + windowSize, result.count)
+        var recoveryIdx: Int? = nil
+        for j in (i + 1)..<limit {
+            if abs(result[j] - baseline) <= threshold {
+                recoveryIdx = j
+                break
+            }
+        }
+        guard let end = recoveryIdx else { i += 1; continue }
+        // Linearly interpolate from index (i-1) to index end
+        let startVal = result[i - 1]
+        let endVal   = result[end]
+        let span     = Double(end - (i - 1))
+        for k in i..<end {
+            let t = Double(k - (i - 1)) / span
+            result[k] = startVal + t * (endVal - startVal)
+        }
+        i = end + 1
+    }
+    return result
+}
+
+// MARK: - Fullscreen map with integrated scrubbing
+
+private struct FullscreenRouteView: View {
+    let track: [RoutePoint]
+    let peakEvents: [PeakEvent]
+    var rawFwd: [Float] = []
+    var rawLat: [Float] = []
+
+    @State private var scrubFraction: Double? = nil
+
+    private var speeds: [Double] { track.map { $0.speedMps * 3.6 } }
+    private var alts: [Double] { smoothElevationGlitches(track.map { $0.altitudeM }) }
+    private var hasElevation: Bool { alts.contains(where: { $0 != 0 }) }
+
+    private var scrubCoordinate: CLLocationCoordinate2D? {
+        guard let frac = scrubFraction, track.count >= 2 else { return nil }
+        let idx = min(track.count - 1, max(0, Int(frac * Double(track.count))))
+        return track[idx].coordinate
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            RouteMapView(
+                track: track,
+                peakEvents: peakEvents,
+                scrubCoordinate: scrubCoordinate,
+                onScrubFractionChanged: { scrubFraction = $0 }
+            )
+
+            VStack(alignment: .leading, spacing: 6) {
+                // Speed chart
+                if !speeds.isEmpty {
+                    HStack {
+                        Text("Speed").font(.caption2).foregroundStyle(.tertiary)
+                        Spacer()
+                        if let frac = scrubFraction {
+                            let sIdx = min(speeds.count - 1, max(0, Int(frac * Double(speeds.count))))
+                            Text(String(format: "%.0f km/h", speeds[sIdx]))
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(Color.accentColor)
+                        }
+                    }
+                    ScrubSpeedChart(data: speeds, color: .accentColor, showFill: true,
+                                    height: 40, scrubFraction: $scrubFraction)
+                }
+
+                // Elevation chart
+                if hasElevation {
+                    HStack {
+                        Text("Elevation").font(.caption2).foregroundStyle(.tertiary)
+                        Spacer()
+                        if let frac = scrubFraction {
+                            let eIdx = min(alts.count - 1, max(0, Int(frac * Double(alts.count))))
+                            Text(String(format: "%.0f m", alts[eIdx]))
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundStyle(.green)
+                        }
+                    }
+                    ScrubSpeedChart(data: alts, color: .green, showFill: true,
+                                    height: 32, zeroBased: false, scrubFraction: $scrubFraction)
+                }
+
+                // G-force readout — appears only while scrubbing
+                if let frac = scrubFraction, !rawFwd.isEmpty, rawFwd.count == rawLat.count {
+                    let rIdx = min(rawFwd.count - 1, max(0, Int(frac * Double(rawFwd.count))))
+                    HStack(spacing: 6) {
+                        Text(String(format: "%+.2f g", Double(rawFwd[rIdx]))).foregroundStyle(.blue)
+                        Text("fwd").foregroundStyle(.tertiary)
+                        Text("·").foregroundStyle(.quaternary)
+                        Text(String(format: "%+.2f g", Double(rawLat[rIdx]))).foregroundStyle(.orange)
+                        Text("lat").foregroundStyle(.tertiary)
+                    }
+                    .font(.system(.caption2, design: .monospaced))
+                    .padding(.top, 2)
+                }
+            }
+            .padding(12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(.horizontal, 16)
+            .padding(.bottom, 20)
+        }
+    }
+}
+
+// MARK: - Interactive scrub speed chart
+
+private struct ScrubSpeedChart: View {
+    let data: [Double]
+    var color: Color = .accentColor
+    var showFill: Bool = true
+    var height: CGFloat = 56
+    /// When true (default), y axis starts at 0 — correct for speed.
+    /// When false, domain is computed from the data range — correct for elevation.
+    var zeroBased: Bool = true
+    @Binding var scrubFraction: Double?
+
+    private var decimated: [(index: Int, value: Double)] {
+        guard !data.isEmpty else { return [] }
+        let step = max(1, data.count / 300)
+        return Swift.stride(from: 0, to: data.count, by: step).map { (index: $0, value: data[$0]) }
+    }
+
+    private var yDomain: ClosedRange<Double> {
+        if zeroBased {
+            return 0 ... max((data.max() ?? 10) * 1.1, 10)
+        }
+        let mn = data.min() ?? 0
+        let mx = data.max() ?? 10
+        let pad = max((mx - mn) * 0.15, 5)
+        return (mn - pad) ... (mx + pad)
+    }
+
+    private var xMax: Int { max(1, data.count - 1) }
+
+    private var scrubDataIndex: Int? {
+        guard let frac = scrubFraction else { return nil }
+        return min(xMax, max(0, Int(frac * Double(xMax))))
+    }
+
+    var body: some View {
+        Chart {
+            ForEach(decimated, id: \.index) { point in
+                if showFill {
+                    AreaMark(x: .value("i", point.index), y: .value("v", point.value))
+                        .foregroundStyle(color.opacity(0.12))
+                }
+                LineMark(x: .value("i", point.index), y: .value("v", point.value))
+                    .foregroundStyle(color)
+                    .lineStyle(StrokeStyle(lineWidth: 1.6))
+            }
+            if let sx = scrubDataIndex {
+                RuleMark(x: .value("scrub", sx))
+                    .foregroundStyle(Color(.label).opacity(0.45))
+                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [3, 3]))
+            }
+        }
+        .chartXAxis(.hidden)
+        .chartYAxis(.hidden)
+        .chartYScale(domain: yDomain)
+        .chartXScale(domain: 0...xMax)
+        .frame(height: height)
+        .chartOverlay { _ in
+            GeometryReader { geo in
+                Color.clear.contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { drag in
+                                scrubFraction = max(0, min(1, drag.location.x / geo.size.width))
+                            }
+                            .onEnded { _ in
+                                scrubFraction = nil
+                            }
+                    )
+            }
+        }
     }
 }
