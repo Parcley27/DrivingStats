@@ -219,7 +219,7 @@ class MotionManager: ObservableObject {
     private func startMotionUpdates() {
         guard motion.isDeviceMotionAvailable else { return }
         motion.deviceMotionUpdateInterval = 1.0 / 50.0
-        motion.startDeviceMotionUpdates(using: .xMagneticNorthZVertical, to: updateQueue) { [weak self] data, error in
+        motion.startDeviceMotionUpdates(using: .xTrueNorthZVertical, to: updateQueue) { [weak self] data, error in
             guard let data, error == nil else { return }
             Task { @MainActor [weak self] in
                 self?.processMotionData(data)
