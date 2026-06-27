@@ -22,6 +22,7 @@ struct SessionResult: Identifiable {
     var rawFwd: [Float] = []
     var rawLat: [Float] = []
     var rawVert: [Float] = []
+    var lapSplits: [Double] = []
 }
 
 // MARK: - Results sheet (shown immediately after Stop)
@@ -39,7 +40,8 @@ struct SessionResultsView: View {
                 track: result.track,
                 peakEvents: result.peakEvents,
                 stats: result.stats,
-                ggSamples: result.ggSamples
+                ggSamples: result.ggSamples,
+                lapSplits: result.lapSplits
             )
             .navigationTitle("Drive Summary")
             .navigationBarTitleDisplayMode(.inline)
@@ -96,6 +98,7 @@ struct DriveSessionView: View {
             peakEvents: session.peakEventsRestored,
             stats: stats,
             ggSamples: session.ggPointsStored,
+            lapSplits: session.lapSplitSeconds,
             dataSize: session.estimatedSizeBytes
         )
         .navigationTitle(session.routeLabel ?? "Drive Summary")
@@ -110,6 +113,7 @@ private struct DriveSessionContent: View {
     let peakEvents: [PeakEvent]
     let stats: SessionStats
     let ggSamples: [GGPoint]
+    var lapSplits: [Double] = []
     var dataSize: Int? = nil
 
     @AppStorage("ds.showDrivingScore") private var showDrivingScore = true
@@ -254,6 +258,43 @@ private struct DriveSessionContent: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+            }
+
+            // Laps — only shown when the driver completed at least one circuit
+            if !lapSplits.isEmpty {
+                Section {
+                    Text("Laps use the recording start point as the finish line — GPS accuracy and circuit shape affect detection.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    let fastest = lapSplits.min() ?? 0
+                    let slowest = lapSplits.max() ?? 0
+                    ForEach(lapSplits.indices, id: \.self) { i in
+                        let t = lapSplits[i]
+                        LabeledContent("Lap \(i + 1)") {
+                            Text(formatDuration(t))
+                                .font(.system(.footnote, design: .monospaced))
+                                .foregroundStyle(
+                                    lapSplits.count > 1 && t == fastest ? Color.green
+                                    : lapSplits.count > 1 && t == slowest ? Color.orange
+                                    : Color.secondary
+                                )
+                        }
+                    }
+                    if lapSplits.count >= 2 {
+                        LabeledContent("Fastest") {
+                            Text(formatDuration(fastest))
+                                .font(.system(.footnote, design: .monospaced))
+                                .foregroundStyle(.green)
+                        }
+                        LabeledContent("Slowest") {
+                            Text(formatDuration(slowest))
+                                .font(.system(.footnote, design: .monospaced))
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                } header: {
+                    sectionHeader("Laps", note: "\(lapSplits.count) \(lapSplits.count == 1 ? "lap" : "laps")")
+                }
             }
 
             // Session timing + data size

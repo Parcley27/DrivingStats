@@ -196,7 +196,8 @@ struct TrackingView: View {
             ggSamples: motion.ggSamples,
             rawFwd: motion.rawSessionFwd,
             rawLat: motion.rawSessionLat,
-            rawVert: motion.rawSessionVert
+            rawVert: motion.rawSessionVert,
+            lapSplits: location.lapSplits
         )
     }
 }

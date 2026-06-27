@@ -102,6 +102,9 @@ final class DriveSession {
     var peakEventLons: [Double] = []
     var peakEventFormatted: [String] = []
 
+    // MARK: Lap splits (seconds per lap, empty when no circuit was detected)
+    var lapSplitSeconds: [Double] = []
+
     init(result: SessionResult) {
         let s = result.stats
         startDate = s.startDate
@@ -162,6 +165,7 @@ final class DriveSession {
         peakEventLats = result.peakEvents.map { $0.coordinate.latitude }
         peakEventLons = result.peakEvents.map { $0.coordinate.longitude }
         peakEventFormatted = result.peakEvents.map { $0.formatted }
+        lapSplitSeconds = result.lapSplits
     }
 
     // MARK: Computed helpers
