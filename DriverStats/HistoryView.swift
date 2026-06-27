@@ -227,6 +227,12 @@ private struct SessionCardView: View {
         session.routeLabel ?? session.startDate.formatted(date: .abbreviated, time: .shortened)
     }
 
+    private var timeRange: String {
+        let end = session.startDate.addingTimeInterval(session.durationSeconds)
+        let fmt = Date.FormatStyle(date: .omitted, time: .shortened)
+        return "\(session.startDate.formatted(fmt)) → \(end.formatted(fmt))"
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             // Mini route map thumbnail
@@ -242,10 +248,15 @@ private struct SessionCardView: View {
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             VStack(alignment: .leading, spacing: 7) {
-                HStack(alignment: .center) {
-                    Text(primaryLabel)
-                        .font(.system(size: 14.5, weight: .semibold))
-                        .lineLimit(1)
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(primaryLabel)
+                            .font(.system(size: 14.5, weight: .semibold))
+                            .lineLimit(1)
+                        Text(timeRange)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(.secondary)
+                    }
                     Spacer()
                     if showDrivingScore {
                         ScoreRing(value: score, size: 34)

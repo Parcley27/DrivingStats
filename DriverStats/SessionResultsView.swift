@@ -95,7 +95,8 @@ struct DriveSessionView: View {
             track: session.routePoints,
             peakEvents: session.peakEventsRestored,
             stats: stats,
-            ggSamples: session.ggPointsStored
+            ggSamples: session.ggPointsStored,
+            dataSize: session.estimatedSizeBytes
         )
         .navigationTitle(session.routeLabel ?? "Drive Summary")
         .navigationBarTitleDisplayMode(.inline)
@@ -109,6 +110,7 @@ private struct DriveSessionContent: View {
     let peakEvents: [PeakEvent]
     let stats: SessionStats
     let ggSamples: [GGPoint]
+    var dataSize: Int? = nil
 
     @AppStorage("ds.showDrivingScore") private var showDrivingScore = true
     @State private var showingFullscreenMap = false
@@ -252,6 +254,17 @@ private struct DriveSessionContent: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+            }
+
+            // Session timing + data size
+            Section {
+                LabeledContent("Started", value: stats.startDate.formatted(date: .abbreviated, time: .shortened))
+                if let end = stats.endDate {
+                    LabeledContent("Ended", value: end.formatted(date: .abbreviated, time: .shortened))
+                }
+                if let size = dataSize {
+                    LabeledContent("Recorded data", value: size.formattedBytes)
+                }
             }
 
             // Smoothness score
