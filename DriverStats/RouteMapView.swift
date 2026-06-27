@@ -37,29 +37,61 @@ struct RouteMapView: UIViewRepresentable {
     }
 
     func updateUIView(_ map: MKMapView, context: Context) {
-        map.removeOverlays(map.overlays)
-        map.removeAnnotations(map.annotations)
-        guard track.count >= 2 else { return }
-
-        let coordinates = track.map(\.coordinate)
-        let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
-        context.coordinator.speedsAtPoints = track.map(\.speedMps)
-        context.coordinator.thumbnailMode = thumbnailMode
-        map.addOverlay(polyline, level: .aboveRoads)
-
-        for event in peakEvents {
-            map.addAnnotation(PeakAnnotation(event))
-        }
-
-        let padding: UIEdgeInsets = thumbnailMode
-            ? UIEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
-            : UIEdgeInsets(top: 60, left: 40, bottom: 40, right: 40)
-        map.setVisibleMapRect(polyline.boundingMapRect, edgePadding: padding, animated: false)
+        context.coordinator.setup(map: map, track: track, peakEvents: peakEvents, thumbnailMode: thumbnailMode)
     }
 
     class Coordinator: NSObject, MKMapViewDelegate {
+        private var fullTrack: [RoutePoint] = []
+        private var currentStride: Int = 1
+        private var lastTrackSignature: Int = -1
+        private var lastPeakEventCount: Int = -1
+        private(set) var thumbnailMode: Bool = false
+        // parallel to the polyline currently on the map
         var speedsAtPoints: [Double] = []
-        var thumbnailMode: Bool = false
+
+        func setup(map: MKMapView, track: [RoutePoint], peakEvents: [PeakEvent], thumbnailMode: Bool) {
+            let sig = trackSignature(track, thumbnail: thumbnailMode)
+            let trackChanged = sig != lastTrackSignature
+            let eventsChanged = peakEvents.count != lastPeakEventCount
+            guard trackChanged || eventsChanged else { return }
+
+            lastTrackSignature = sig
+            lastPeakEventCount = peakEvents.count
+            self.thumbnailMode = thumbnailMode
+            self.fullTrack = track
+
+            map.removeOverlays(map.overlays)
+            map.removeAnnotations(map.annotations)
+            guard track.count >= 2 else { return }
+
+            for event in peakEvents {
+                map.addAnnotation(PeakAnnotation(event))
+            }
+
+            if thumbnailMode {
+                // Caller already downsamples thumbnail tracks — render as-is
+                placePolyline(sampled: track, on: map)
+            } else {
+                // Use a large span so the first render is cheap; regionDidChangeAnimated
+                // fires right after setVisibleMapRect and upgrades to proper fidelity.
+                placePolyline(span: MKCoordinateSpan(latitudeDelta: 10, longitudeDelta: 10), on: map)
+            }
+
+            let padding: UIEdgeInsets = thumbnailMode
+                ? UIEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
+                : UIEdgeInsets(top: 60, left: 40, bottom: 40, right: 40)
+            if let overlay = map.overlays.first {
+                map.setVisibleMapRect(overlay.boundingMapRect, edgePadding: padding, animated: false)
+            }
+        }
+
+        func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+            guard !thumbnailMode, fullTrack.count >= 2 else { return }
+            let newStep = computeStep(totalPoints: fullTrack.count, span: mapView.region.span)
+            guard newStep != currentStride else { return }
+            mapView.removeOverlays(mapView.overlays)
+            placePolyline(span: mapView.region.span, on: mapView)
+        }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             guard let polyline = overlay as? MKPolyline else {
@@ -108,17 +140,65 @@ struct RouteMapView: UIViewRepresentable {
             return view
         }
 
+        // MARK: Private helpers
+
+        private func placePolyline(span: MKCoordinateSpan, on map: MKMapView) {
+            let step = computeStep(totalPoints: fullTrack.count, span: span)
+            currentStride = step
+            let sampled = Swift.stride(from: 0, to: fullTrack.count, by: step).map { fullTrack[$0] }
+            placePolyline(sampled: sampled, on: map)
+        }
+
+        private func placePolyline(sampled: [RoutePoint], on map: MKMapView) {
+            let coords = sampled.map(\.coordinate)
+            let polyline = MKPolyline(coordinates: coords, count: coords.count)
+            speedsAtPoints = sampled.map(\.speedMps)
+            map.addOverlay(polyline, level: .aboveRoads)
+        }
+
+        // Same proportional formula as AllDrivesMapView:
+        // target = max(minFloor, totalPoints / proportionalDivisor)
+        // step   = max(1, totalPoints / target)
+        private func computeStep(totalPoints: Int, span: MKCoordinateSpan) -> Int {
+            let deg = max(span.latitudeDelta, span.longitudeDelta)
+            let divisor: Int
+            let floor: Int
+            if deg < 0.005 {
+                divisor = 4;  floor = 250
+            } else if deg < 0.01 {
+                divisor = 6;  floor = 180
+            } else if deg < 0.05 {
+                divisor = 12; floor = 100
+            } else if deg < 0.2 {
+                divisor = 25; floor = 60
+            } else {
+                divisor = 50; floor = 40
+            }
+            let target = max(floor, totalPoints / divisor)
+            return max(1, totalPoints / target)
+        }
+
+        private func trackSignature(_ track: [RoutePoint], thumbnail: Bool) -> Int {
+            var hasher = Hasher()
+            hasher.combine(track.count)
+            hasher.combine(thumbnail)
+            if let first = track.first {
+                hasher.combine(first.coordinate.latitude)
+                hasher.combine(first.coordinate.longitude)
+            }
+            return hasher.finalize()
+        }
+
         // Red → orange (⅓) → yellow (⅔) → green (max speed)
         private func color(forSpeedMps speedMps: Double, maxMps: Double) -> UIColor {
             let t = CGFloat(min(1.0, speedMps / maxMps))
-            // Map 3 equal segments: red→orange, orange→yellow, yellow→green
             let hue: CGFloat
             if t < 1/3 {
-                hue = t * 3 * (30.0 / 360.0)           // 0° → 30° (red → orange)
+                hue = t * 3 * (30.0 / 360.0)
             } else if t < 2/3 {
-                hue = 30.0/360.0 + (t - 1/3) * 3 * (30.0 / 360.0)  // 30° → 60° (orange → yellow)
+                hue = 30.0/360.0 + (t - 1/3) * 3 * (30.0 / 360.0)
             } else {
-                hue = 60.0/360.0 + (t - 2/3) * 3 * (60.0 / 360.0)  // 60° → 120° (yellow → green)
+                hue = 60.0/360.0 + (t - 2/3) * 3 * (60.0 / 360.0)
             }
             return UIColor(hue: hue, saturation: 1, brightness: 0.9, alpha: 1)
         }
