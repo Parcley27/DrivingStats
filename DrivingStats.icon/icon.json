@@ -1,0 +1,62 @@
+{
+  "features" : [
+    "refractivity"
+  ],
+  "fill" : {
+    "solid" : "display-p3:0.84424,0.38623,0.16943,1.00000"
+  },
+  "groups" : [
+    {
+      "blend-mode" : "normal",
+      "blur-material" : null,
+      "layers" : [
+        {
+          "fill-specializations" : [
+            {
+              "value" : "system-light"
+            },
+            {
+              "appearance" : "dark",
+              "value" : {
+                "solid" : "display-p3:0.93018,0.45264,0.29321,1.00000"
+              }
+            }
+          ],
+          "image-name" : "Jukebox Background Removed Design.png",
+          "name" : "Jukebox Background Removed Design"
+        }
+      ],
+      "opacity" : 1,
+      "refractivity" : {
+        "depth" : 0.29890625,
+        "enabled" : true,
+        "strength" : 0.119296875
+      },
+      "shadow-specializations" : [
+        {
+          "value" : {
+            "kind" : "layer-color",
+            "opacity" : 0.6
+          }
+        },
+        {
+          "appearance" : "dark",
+          "value" : {
+            "kind" : "layer-color",
+            "opacity" : 0.6
+          }
+        }
+      ],
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.2
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
