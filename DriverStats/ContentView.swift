@@ -28,7 +28,7 @@ struct ContentView: View {
 
             Tab("Live", systemImage: "waveform.path") {
                 NavigationStack {
-                    SensorsView(motion: motion)
+                    SensorsView(motion: motion, location: location)
                 }
             }
 

@@ -10,10 +10,24 @@ import SwiftUI
 
 struct SensorsView: View {
     @ObservedObject var motion: MotionManager
+    @ObservedObject var location: LocationManager
     @AppStorage("ds.feltDirection") private var feltDirection = false
 
     var body: some View {
         List {
+
+            if !location.isCourseReliable {
+                Section {
+                    HStack(spacing: 10) {
+                        Image(systemName: "location.slash.fill")
+                            .foregroundStyle(.orange)
+                        Text("GPS motion required for accurate sensor data")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .listRowBackground(Color.orange.opacity(0.08))
+                }
+            }
 
             Section("Gravity Level") {
                 VStack(spacing: 18) {
@@ -65,7 +79,7 @@ struct SensorsView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .navigationTitle("Sensors")
+        .navigationTitle("Live Sensors")
     }
 
     // Felt-direction-adjusted axis values, shared by the bubble and the bars.
