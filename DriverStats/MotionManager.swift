@@ -70,11 +70,16 @@ class MotionManager: ObservableObject {
     private(set) var rawSessionVert: [Float] = []
     private var shouldStoreRaw = true
 
-    // Reverse-drive detection: fires once per session if a ~180° course flip is seen within 45 s
-    private var initialSessionCourse: Double? = nil
-    private var initialSessionCourseTime: Date? = nil
-    private var hasAppliedReverseFlip: Bool = false
-    private let reverseDetectionWindow: TimeInterval = 45
+    // Heading orientation: sparse GPS anchors recorded during the session are used post-hoc
+    // at endSession() to detect and correct any portion driven with a reversed heading.
+    private struct HeadingAnchor {
+        let rawSampleIndex: Int
+        let ggSampleIndex: Int
+        let course: Double
+        let speedMps: Double
+        let accuracyM: Double
+    }
+    private var headingAnchors: [HeadingAnchor] = []
 
     private var pendingGPS: (course: Double, speedMps: Double, accuracyM: Double)?
     private var lastFix: GPSFix?
@@ -147,14 +152,15 @@ class MotionManager: ObservableObject {
         rawSessionFwd = []
         rawSessionLat = []
         rawSessionVert = []
-        initialSessionCourse = nil
-        initialSessionCourseTime = nil
-        hasAppliedReverseFlip = false
+        headingAnchors = []
         prevEffective = nil
         prevTimestamp = nil
     }
 
     func endSession() {
+        if correctHeadingOrientation() {
+            liveStats.mergeAccelerationResult(recomputeAccelerationStats())
+        }
         liveStats.end()
         sessionStats = liveStats
         isSessionActive = false
@@ -200,24 +206,6 @@ class MotionManager: ObservableObject {
               accuracyM < LocationManager.maxReliableAccuracyM
         else { return }
         pendingGPS = (course: course, speedMps: speedMps, accuracyM: accuracyM)
-
-        // Reverse-drive detection: if course flips ~180° within the first 45 s, the driver
-        // started in reverse. Flip all accumulated data and correct going forward.
-        if isSessionActive && !hasAppliedReverseFlip {
-            if initialSessionCourse == nil {
-                initialSessionCourse = course
-                initialSessionCourseTime = Date()
-            } else if let initial = initialSessionCourse, let initTime = initialSessionCourseTime {
-                if Date().timeIntervalSince(initTime) < reverseDetectionWindow {
-                    let delta = abs(course - initial)
-                    if min(delta, 360 - delta) > 150 {
-                        applyReverseFlip()
-                        hasAppliedReverseFlip = true
-                        initialSessionCourse = course  // Update baseline to new direction
-                    }
-                }
-            }
-        }
     }
 
 #if DEBUG
@@ -262,6 +250,15 @@ class MotionManager: ObservableObject {
                 accuracyM: pending.accuracyM,
                 timestamp: Date()
             )
+            if isSessionActive && shouldStoreRaw {
+                headingAnchors.append(HeadingAnchor(
+                    rawSampleIndex: rawSessionFwd.count,
+                    ggSampleIndex: ggSamples.count,
+                    course: pending.course,
+                    speedMps: pending.speedMps,
+                    accuracyM: pending.accuracyM
+                ))
+            }
             pendingGPS = nil
         }
 
@@ -372,32 +369,114 @@ class MotionManager: ObservableObject {
         }
     }
 
-    // MARK: - Reverse-drive correction
+    // MARK: - Heading orientation correction
 
-    /// Flips the forward/lateral coordinate system when a reverse-start is detected.
-    /// Swaps signed peaks, event counts, and all buffered samples so the rest of the
-    /// drive is recorded with the correct heading.
-    private func applyReverseFlip() {
-        // Signed peak stats: swap forward ↔ braking and right ↔ left (both axes invert)
-        (liveStats.peakForward,      liveStats.peakBraking)      = (-liveStats.peakBraking,      -liveStats.peakForward)
-        (liveStats.peakJerkForward,  liveStats.peakJerkBraking)  = (-liveStats.peakJerkBraking,  -liveStats.peakJerkForward)
-        (liveStats.peakRight,        liveStats.peakLeft)          = (-liveStats.peakLeft,          -liveStats.peakRight)
-        (liveStats.peakJerkRight,    liveStats.peakJerkLeft)      = (-liveStats.peakJerkLeft,      -liveStats.peakJerkRight)
-        (liveStats.hardAccelCount,   liveStats.hardBrakingCount)  = (liveStats.hardBrakingCount,   liveStats.hardAccelCount)
+    /// Computes a quality-weighted canonical forward heading from the drive's best GPS anchors,
+    /// then negates fwd+lat for any raw sample whose recorded GPS course opposed that canonical
+    /// direction. Returns true if any samples were corrected.
+    @discardableResult
+    private func correctHeadingOrientation() -> Bool {
+        guard rawSessionFwd.count >= 10, !headingAnchors.isEmpty else { return false }
 
-        // Swap peak-event map entries so map pins land on the right event type
-        let accel = peakTracker[.peakAccel]; peakTracker[.peakAccel] = peakTracker[.peakBraking]; peakTracker[.peakBraking] = accel
-        let right = peakTracker[.peakRight]; peakTracker[.peakRight] = peakTracker[.peakLeft];    peakTracker[.peakLeft]    = right
+        // Quality-weighted circular mean — only use fast, accurate fixes
+        let quality = headingAnchors.filter { $0.speedMps > 5.0 && $0.accuracyM < 25.0 }
+        guard quality.count >= 2 else { return false }
 
-        // Flip sign of all buffered display samples
-        recentSamples = recentSamples.map {
-            AccelerationSample(id: $0.id, elapsedSeconds: $0.elapsedSeconds,
-                               forward: -$0.forward, lateral: -$0.lateral, vertical: $0.vertical)
+        var sinSum = 0.0, cosSum = 0.0, totalWeight = 0.0
+        for a in quality {
+            let w = a.speedMps * a.speedMps / max(a.accuracyM, 1.0)
+            let rad = a.course * .pi / 180.0
+            sinSum += w * sin(rad)
+            cosSum += w * cos(rad)
+            totalWeight += w
         }
-        ggSamples = ggSamples.map { GGPoint(lat: -$0.lat, fwd: -$0.fwd, isPeak: $0.isPeak) }
 
-        // Push corrected stats to the published property immediately
-        sessionStats = liveStats
+        // If headings are too scattered (e.g. many back-and-forth turns), don't correct
+        let magnitude = (sinSum * sinSum + cosSum * cosSum).squareRoot() / totalWeight
+        guard magnitude > 0.3 else { return false }
+
+        let norm = (sinSum * sinSum + cosSum * cosSum).squareRoot()
+        let canonicalCos = cosSum / norm
+        let canonicalSin = sinSum / norm
+
+        // Flip raw samples whose active GPS course opposed canonical forward
+        var flippedAny = false
+        var anchorIdx = 0
+        var lastCosCourse = 0.0, lastSinCourse = 0.0, hasActiveCourse = false
+
+        for sampleIdx in 0..<rawSessionFwd.count {
+            while anchorIdx < headingAnchors.count &&
+                  headingAnchors[anchorIdx].rawSampleIndex <= sampleIdx {
+                let rad = headingAnchors[anchorIdx].course * .pi / 180.0
+                lastCosCourse = cos(rad)
+                lastSinCourse = sin(rad)
+                hasActiveCourse = true
+                anchorIdx += 1
+            }
+            guard hasActiveCourse else { continue }
+            if lastCosCourse * canonicalCos + lastSinCourse * canonicalSin < 0 {
+                rawSessionFwd[sampleIdx] = -rawSessionFwd[sampleIdx]
+                rawSessionLat[sampleIdx] = -rawSessionLat[sampleIdx]
+                flippedAny = true
+            }
+        }
+
+        // Correct g-g scatter with the same anchor pass
+        anchorIdx = 0; hasActiveCourse = false; lastCosCourse = 0; lastSinCourse = 0
+        for ggIdx in 0..<ggSamples.count {
+            while anchorIdx < headingAnchors.count &&
+                  headingAnchors[anchorIdx].ggSampleIndex <= ggIdx {
+                let rad = headingAnchors[anchorIdx].course * .pi / 180.0
+                lastCosCourse = cos(rad)
+                lastSinCourse = sin(rad)
+                hasActiveCourse = true
+                anchorIdx += 1
+            }
+            guard hasActiveCourse else { continue }
+            if lastCosCourse * canonicalCos + lastSinCourse * canonicalSin < 0 {
+                let p = ggSamples[ggIdx]
+                ggSamples[ggIdx] = GGPoint(lat: -p.lat, fwd: -p.fwd, isPeak: p.isPeak)
+            }
+        }
+
+        return flippedAny
+    }
+
+    /// Replays the (corrected) raw 10 Hz samples through a fresh SessionStats accumulator
+    /// and returns it. Used to rebuild acceleration stats after heading correction.
+    private func recomputeAccelerationStats() -> SessionStats {
+        var acc = SessionStats()
+        acc.hardThresholdG = hardThresholdG
+        acc.surfaceEventThresholdG = surfaceThresholdG
+
+        let sampleRate = 10
+        let smoothN = autoSmooth ? max(1, Int(autoSmoothWindowSeconds * Double(sampleRate))) : 1
+        var buf: [SIMD3<Double>] = []
+        var prev: SIMD3<Double>? = nil
+        let dt = 1.0 / Double(sampleRate)
+
+        for i in 0..<rawSessionFwd.count {
+            let raw = SIMD3<Double>(Double(rawSessionFwd[i]), Double(rawSessionLat[i]), Double(rawSessionVert[i]))
+            buf.append(raw)
+            if buf.count > smoothN { buf.removeFirst() }
+            let sv = buf.reduce(.zero, +) / Double(buf.count)
+            let effectiveZ = suppressVerticalEvents ? 0.0 : sv.z
+
+            acc.recordAcceleration(
+                forward: sv.x, lateral: sv.y,
+                rawVertical: raw.z, effectiveVertical: effectiveZ
+            )
+            if let p = prev {
+                acc.recordJerk(
+                    forward:  (sv.x - p.x) / dt,
+                    lateral:  (sv.y - p.y) / dt,
+                    vertical: (effectiveZ - p.z) / dt
+                )
+            }
+            prev = SIMD3<Double>(sv.x, sv.y, effectiveZ)
+        }
+
+        return acc
     }
 
     // MARK: - Math helpers

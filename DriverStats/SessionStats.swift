@@ -220,6 +220,51 @@ struct SessionStats {
     }
 }
 
+// MARK: - Heading orientation correction support
+
+extension SessionStats {
+    /// Overwrites all acceleration-derived fields with values from a freshly recomputed stats object.
+    /// GPS/speed/distance/stop fields are left untouched.
+    mutating func mergeAccelerationResult(_ other: SessionStats) {
+        peakForward            = other.peakForward
+        peakBraking            = other.peakBraking
+        avgLongitudinalAbs     = other.avgLongitudinalAbs
+        rmsForward             = other.rmsForward
+        hardAccelCount         = other.hardAccelCount
+        hardBrakingCount       = other.hardBrakingCount
+        peakJerkForward        = other.peakJerkForward
+        peakJerkBraking        = other.peakJerkBraking
+        avgJerkLongitudinalAbs = other.avgJerkLongitudinalAbs
+
+        peakRight              = other.peakRight
+        peakLeft               = other.peakLeft
+        avgLateralAbs          = other.avgLateralAbs
+        rmsLateral             = other.rmsLateral
+        hardCorneringCount     = other.hardCorneringCount
+        peakJerkRight          = other.peakJerkRight
+        peakJerkLeft           = other.peakJerkLeft
+        avgJerkLateralAbs      = other.avgJerkLateralAbs
+
+        peakUp                 = other.peakUp
+        peakDown               = other.peakDown
+        avgVerticalAbs         = other.avgVerticalAbs
+        rmsVertical            = other.rmsVertical
+        peakJerkUp             = other.peakJerkUp
+        peakJerkDown           = other.peakJerkDown
+        avgJerkVerticalAbs     = other.avgJerkVerticalAbs
+
+        peakNetAccel           = other.peakNetAccel
+        avgNetAccel            = other.avgNetAccel
+        rmsNet                 = other.rmsNet
+        peakNetJerk            = other.peakNetJerk
+        avgNetJerk             = other.avgNetJerk
+
+        surfaceEventCount      = other.surfaceEventCount
+        accelCount             = other.accelCount
+        jerkCount              = other.jerkCount
+    }
+}
+
 // MARK: - Restore from persistent storage
 
 extension SessionStats {
