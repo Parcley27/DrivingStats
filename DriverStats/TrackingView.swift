@@ -188,6 +188,7 @@ struct TrackingView: View {
 
     private func stopSession() {
         motion.endSession()
+        location.stopTrack()
         guard let stats = motion.sessionStats else { return }
         sessionResult = SessionResult(
             stats: stats,

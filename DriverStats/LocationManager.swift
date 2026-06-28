@@ -80,6 +80,13 @@ class LocationManager: NSObject, ObservableObject {
         lapTrackStartDate = Date()
         lastLapCompletionDate = nil
         hasExitedLapZone = false
+        manager.allowsBackgroundLocationUpdates = true
+        manager.pausesLocationUpdatesAutomatically = false
+    }
+
+    func stopTrack() {
+        manager.allowsBackgroundLocationUpdates = false
+        manager.pausesLocationUpdatesAutomatically = true
     }
 
     func requestPermissionAndStart() {
@@ -97,8 +104,6 @@ class LocationManager: NSObject, ObservableObject {
     }
 
     private func startLocationUpdates() {
-        manager.allowsBackgroundLocationUpdates = true
-        manager.pausesLocationUpdatesAutomatically = false
         manager.startUpdatingLocation()
     }
 
