@@ -15,6 +15,11 @@ struct HistoryView: View {
     @Query(sort: \DriveSession.startDate, order: .reverse) private var sessions: [DriveSession]
     @Environment(\.modelContext) private var modelContext
     @State private var showingAllDrivesMap = false
+    @State private var editMode: EditMode = .inactive
+    @State private var selection: Set<PersistentIdentifier> = []
+    @State private var showMergeConfirmation = false
+
+    @AppStorage("ds.mergeWindowMinutes") private var mergeWindowMinutes: Double = 15
 
     var body: some View {
         Group {
@@ -28,7 +33,7 @@ struct HistoryView: View {
                     .padding(.top, 60)
                 }
             } else {
-                List {
+                List(selection: $selection) {
                     // Aggregate stats + smoothness trend
                     Section {
                         VStack(spacing: 18) {
@@ -122,6 +127,7 @@ struct HistoryView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .environment(\.editMode, $editMode)
             }
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
@@ -135,9 +141,30 @@ struct HistoryView: View {
                 }
                 .disabled(sessions.isEmpty)
             }
-            ToolbarItem(placement: .navigationBarTrailing) {
-                EditButton().disabled(sessions.isEmpty)
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                if editMode == .active, mergeCandidate != nil {
+                    Button("Merge") {
+                        showMergeConfirmation = true
+                    }
+                }
+                Button(editMode == .active ? "Done" : "Edit") {
+                    withAnimation {
+                        if editMode == .active {
+                            editMode = .inactive
+                            selection.removeAll()
+                        } else {
+                            editMode = .active
+                        }
+                    }
+                }
+                .disabled(sessions.isEmpty)
             }
+        }
+        .alert("Merge 2 Drives?", isPresented: $showMergeConfirmation) {
+            Button("Merge", role: .destructive, action: performMerge)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The gap between these drives will count as stopping time. Both original sessions will be replaced by a single combined session.")
         }
         .fullScreenCover(isPresented: $showingAllDrivesMap) {
             NavigationStack {
@@ -152,6 +179,47 @@ struct HistoryView: View {
                     }
             }
         }
+    }
+
+    // MARK: - Merge logic
+
+    /// Returns the two selected sessions (sorted earliest first) when they are merge-eligible,
+    /// i.e. the gap between the first session's end and the second session's start is within
+    /// the configured merge window.
+    private var mergeCandidate: (DriveSession, DriveSession)? {
+        guard selection.count == 2 else { return nil }
+        let picked = sessions.filter { selection.contains($0.persistentModelID) }
+        guard picked.count == 2 else { return nil }
+        let first  = picked[0].startDate <= picked[1].startDate ? picked[0] : picked[1]
+        let second = picked[0].startDate <= picked[1].startDate ? picked[1] : picked[0]
+        let gap = second.startDate.timeIntervalSince(
+            first.startDate.addingTimeInterval(first.durationSeconds))
+        guard gap >= 0, gap < mergeWindowMinutes * 60 else { return nil }
+        return (first, second)
+    }
+
+    private func performMerge() {
+        guard let (first, second) = mergeCandidate else { return }
+
+        let merged = DriveSession(merging: first, with: second)
+
+        // Use the same persisted threshold/smoothing settings as recomputeAllSessions()
+        let ud = UserDefaults.standard
+        merged.recompute(
+            hardThreshold:       (ud.object(forKey: "ds.hardThreshold")    as? Double) ?? 0.3,
+            surfaceThreshold:    (ud.object(forKey: "ds.surfaceThreshold") as? Double) ?? 0.4,
+            autoSmooth:          (ud.object(forKey: "ds.autoSmooth")       as? Bool)   ?? true,
+            smoothWindowSeconds: (ud.object(forKey: "ds.autoSmoothWindow") as? Double) ?? 0.5,
+            suppressVertical:    (ud.object(forKey: "ds.suppressVertical") as? Bool)   ?? true
+        )
+
+        modelContext.insert(merged)
+        modelContext.delete(first)
+        modelContext.delete(second)
+        try? modelContext.save()
+
+        selection.removeAll()
+        withAnimation { editMode = .inactive }
     }
 
     // MARK: - Aggregates

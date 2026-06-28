@@ -168,6 +168,103 @@ final class DriveSession {
         lapSplitSeconds = result.lapSplits
     }
 
+    // MARK: - Merge initializer
+
+    /// Creates a combined session from two sessions recorded on the same trip.
+    /// Call recompute() immediately after inserting into the model context to derive
+    /// accurate RMS, peak, and smoothness values from the concatenated raw arrays.
+    init(merging a: DriveSession, with b: DriveSession) {
+        let first  = a.startDate <= b.startDate ? a : b
+        let second = a.startDate <= b.startDate ? b : a
+
+        let firstEnd  = first.startDate.addingTimeInterval(first.durationSeconds)
+        let gapSecs   = max(0, second.startDate.timeIntervalSince(firstEnd))
+        let totalDist = first.totalDistanceM + second.totalDistanceM
+        let totalDur  = second.startDate.timeIntervalSince(first.startDate) + second.durationSeconds
+        let totalStop = first.stoppingTimeSeconds + second.stoppingTimeSeconds + gapSecs
+        let movingDur = max(1, totalDur - totalStop)
+
+        // Time
+        startDate           = first.startDate
+        durationSeconds     = totalDur
+        stoppingTimeSeconds = totalStop
+        stopCount           = first.stopCount + second.stopCount + 1
+
+        // Distance & speed
+        totalDistanceM      = totalDist
+        maxSpeedMps         = max(first.maxSpeedMps, second.maxSpeedMps)
+        avgSpeedMps         = totalDur > 0 ? totalDist / totalDur : 0
+        avgMovingSpeedMps   = totalDist / movingDur
+
+        // Route arrays
+        routeLatitudes      = first.routeLatitudes  + second.routeLatitudes
+        routeLongitudes     = first.routeLongitudes + second.routeLongitudes
+        routeSpeeds         = first.routeSpeeds     + second.routeSpeeds
+        routeAltitudes      = first.routeAltitudes  + second.routeAltitudes
+
+        // Place names
+        startPlaceName      = first.startPlaceName
+        endPlaceName        = second.endPlaceName
+
+        // G-G scatter
+        ggScatterLat        = first.ggScatterLat + second.ggScatterLat
+        ggScatterFwd        = first.ggScatterFwd + second.ggScatterFwd
+
+        // Raw sensor samples (recompute() derives all acceleration stats from these)
+        rawFwd              = first.rawFwd  + second.rawFwd
+        rawLat              = first.rawLat  + second.rawLat
+        rawVert             = first.rawVert + second.rawVert
+
+        // Peak event annotations
+        peakEventTypes      = first.peakEventTypes     + second.peakEventTypes
+        peakEventLats       = first.peakEventLats      + second.peakEventLats
+        peakEventLons       = first.peakEventLons      + second.peakEventLons
+        peakEventFormatted  = first.peakEventFormatted + second.peakEventFormatted
+
+        // Lap splits (per-lap durations — concatenate directly)
+        lapSplitSeconds     = first.lapSplitSeconds + second.lapSplitSeconds
+
+        // Seed peak stats — recompute() will replace the ones it covers
+        peakForward     = max(first.peakForward,  second.peakForward)
+        peakBraking     = min(first.peakBraking,  second.peakBraking)
+        peakRight       = max(first.peakRight,    second.peakRight)
+        peakLeft        = min(first.peakLeft,     second.peakLeft)
+        peakUp          = max(first.peakUp,       second.peakUp)
+        peakDown        = min(first.peakDown,     second.peakDown)
+        peakNetAccel    = max(first.peakNetAccel, second.peakNetAccel)
+        peakJerkForward = max(first.peakJerkForward,  second.peakJerkForward)
+        peakJerkBraking = min(first.peakJerkBraking,  second.peakJerkBraking)
+        peakJerkRight   = max(first.peakJerkRight,    second.peakJerkRight)
+        peakJerkLeft    = min(first.peakJerkLeft,     second.peakJerkLeft)
+        peakJerkUp      = max(first.peakJerkUp,       second.peakJerkUp)
+        peakJerkDown    = min(first.peakJerkDown,     second.peakJerkDown)
+        peakNetJerk     = max(first.peakNetJerk,      second.peakNetJerk)
+
+        // Weighted averages by sample count — recompute() replaces the ones it covers
+        let n1 = Double(max(1, first.rawFwd.count))
+        let n2 = Double(max(1, second.rawFwd.count))
+        let nT = n1 + n2
+        avgLongitudinalAbs     = (first.avgLongitudinalAbs     * n1 + second.avgLongitudinalAbs     * n2) / nT
+        avgLateralAbs          = (first.avgLateralAbs          * n1 + second.avgLateralAbs          * n2) / nT
+        avgVerticalAbs         = (first.avgVerticalAbs         * n1 + second.avgVerticalAbs         * n2) / nT
+        avgNetAccel            = (first.avgNetAccel            * n1 + second.avgNetAccel            * n2) / nT
+        rmsForward             = (first.rmsForward             * n1 + second.rmsForward             * n2) / nT
+        rmsLateral             = (first.rmsLateral             * n1 + second.rmsLateral             * n2) / nT
+        rmsVertical            = (first.rmsVertical            * n1 + second.rmsVertical            * n2) / nT
+        rmsNet                 = (first.rmsNet                 * n1 + second.rmsNet                 * n2) / nT
+        avgJerkLongitudinalAbs = (first.avgJerkLongitudinalAbs * n1 + second.avgJerkLongitudinalAbs * n2) / nT
+        avgJerkLateralAbs      = (first.avgJerkLateralAbs      * n1 + second.avgJerkLateralAbs      * n2) / nT
+        avgJerkVerticalAbs     = (first.avgJerkVerticalAbs     * n1 + second.avgJerkVerticalAbs     * n2) / nT
+        avgNetJerk             = (first.avgNetJerk             * n1 + second.avgNetJerk             * n2) / nT
+
+        hardAccelCount     = first.hardAccelCount     + second.hardAccelCount
+        hardBrakingCount   = first.hardBrakingCount   + second.hardBrakingCount
+        hardCorneringCount = first.hardCorneringCount + second.hardCorneringCount
+        surfaceEventCount  = first.surfaceEventCount  + second.surfaceEventCount
+
+        smoothnessScore    = 0  // replaced by recompute()
+    }
+
     // MARK: Computed helpers
 
     var movingTimeSeconds: Double { max(0, durationSeconds - stoppingTimeSeconds) }

@@ -17,6 +17,7 @@ struct SettingsView: View {
     @AppStorage("ds.feltDirection") private var feltDirection: Bool = false
     @AppStorage("ds.storeRawData") private var storeRawData: Bool = true
     @AppStorage("ds.keepScreenOn") private var keepScreenOn: Bool = false
+    @AppStorage("ds.mergeWindowMinutes") private var mergeWindowMinutes: Double = 15
 
     @State private var needsRecompute = false
     @State private var showEraseConfirmation = false
@@ -171,6 +172,31 @@ struct SettingsView: View {
                 .tint(.green)
             }
 
+            // MARK: History
+            Section("History") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Merge window")
+                            Text("Two drives must end and begin within this time to be merge-eligible.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 12)
+                        Text(String(format: "%.0f min", mergeWindowMinutes))
+                            .font(.system(.headline, design: .monospaced))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    Slider(value: $mergeWindowMinutes, in: 5...60, step: 5)
+                        .tint(Color.accentColor)
+                    HStack {
+                        Text("5 min").font(.caption2).foregroundStyle(.tertiary)
+                        Spacer()
+                        Text("60 min").font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
             // MARK: Danger Zone
             Section("Danger Zone") {
                 Button {
@@ -179,9 +205,10 @@ struct SettingsView: View {
                     motion.autoSmoothWindowSeconds = 0.50
                     motion.autoSmooth              = true
                     motion.suppressVerticalEvents  = true
-                    autoPause           = true
-                    backgroundRecording = false
-                    keepScreenOn        = false
+                    autoPause              = true
+                    backgroundRecording    = false
+                    keepScreenOn           = false
+                    mergeWindowMinutes     = 15
                 } label: {
                     HStack {
                         Text("Restore Defaults")
