@@ -19,100 +19,16 @@ struct TrackingView: View {
     private var stats: SessionStats? { motion.sessionStats }
 
     var body: some View {
-        List {
-
-            // Large elapsed-time display
-            Section {
-                VStack(spacing: 6) {
-                    HStack(spacing: 6) {
-                        Circle().fill(Color.red).frame(width: 8, height: 8)
-                        Text("REC").font(.system(size: 13, weight: .semibold)).foregroundStyle(.red)
-                    }
-                    Text(stats.map { formatDuration($0.durationSeconds) } ?? "0:00")
-                        .font(.system(size: 52, weight: .semibold, design: .monospaced))
-                        .monospacedDigit()
-                        .foregroundStyle(Color(.label))
-                }
-                .frame(maxWidth: .infinity)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-            }
-
-            // Speed dial
-            Section {
-                HStack {
-                    Spacer()
-                    Dial(value: max(0, location.speed * 3.6),
-                         max: 200, unit: "km/h", label: "speed",
-                         size: 190, zone: .accentColor, bigValue: true)
-                    Spacer()
-                }
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-            }
-
-            // g-g Diagram + live readout
-            Section {
-                HStack(alignment: .center, spacing: 14) {
-                    GGDiagram(points: ggTrail, gmax: 0.7, size: 150,
-                              showTrail: true, current: ggCurrent)
-                    VStack(spacing: 0) {
-                        liveRow("Forward", value: motion.displayAcceleration.map { signedG($0.forward) } ?? "—")
-                        liveRow("Lateral",  value: motion.displayAcceleration.map { signedG($0.lateral) } ?? "—")
-                        liveRow("Vertical", value: motion.displayAcceleration.map { signedG($0.vertical) } ?? "—")
-                        liveRow("Net",      value: motion.displayAcceleration.map { netGStr($0) } ?? "—", isLast: true)
-                    }
-                }
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-            } header: {
-                HStack {
-                    Text("g-g Diagram")
-                    Spacer()
-                    Text("live").font(.caption2.monospaced()).foregroundStyle(.tertiary)
-                }
-                .textCase(nil)
-            }
-
-            // Session stats
-            Section("Session") {
-                LabeledContent("Distance",     value: stats.map { formatDistance($0.totalDistanceM) } ?? "—")
-                LabeledContent("Moving time",  value: stats.map { formatDuration($0.movingTimeSeconds) } ?? "—")
-                LabeledContent("Max speed",    value: stats.map { String(format: "%.0f km/h", $0.maxSpeedMps * 3.6) } ?? "—")
-                LabeledContent("Stops",        value: stats.map { "\($0.stopCount)" } ?? "—")
-            }
-
-            // Hard events
-            Section {
-                LazyVGrid(
-                    columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3),
-                    spacing: 10
-                ) {
-                    StatCell(label: "Accel",  value: "\(stats?.hardAccelCount ?? 0)",     accent: true)
-                    StatCell(label: "Brake",  value: "\(stats?.hardBrakingCount ?? 0)",   accent: true)
-                    StatCell(label: "Corner", value: "\(stats?.hardCorneringCount ?? 0)", accent: true)
-                }
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-                .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
-            } header: {
-                HStack {
-                    Text("Hard Events")
-                    Spacer()
-                    Text(String(format: "threshold %.2f g", motion.hardThresholdG))
-                        .font(.caption2.monospaced()).foregroundStyle(.tertiary)
-                }
-                .textCase(nil)
-            }
-
-            // Heading source
-            Section("Heading Source") {
-                LabeledContent("Mode",               value: headingMode)
-                LabeledContent("Base GPS / estimate", value: headingBaseEst)
-                LabeledContent("GPS age",            value: headingGpsAge)
-            }
+        TabView {
+            timerSpeedPage
+            ggPage
+            sessionStatsPage
+            headingPage
         }
-        .listStyle(.insetGrouped)
+        .background(Color(.systemBackground))
+        .scrollContentBackground(.hidden)
+        .tabViewStyle(.page(indexDisplayMode: .automatic))
+        .indexViewStyle(.page(backgroundDisplayMode: .never))
         .navigationTitle("Driving")
         .navigationBarTitleDisplayMode(.inline)
         .safeAreaInset(edge: .bottom) {
@@ -131,9 +47,13 @@ struct TrackingView: View {
             .background(.regularMaterial)
         }
         .onAppear {
+            UIPageControl.appearance().currentPageIndicatorTintColor = .label
+            UIPageControl.appearance().pageIndicatorTintColor = .tertiaryLabel
             if keepScreenOn { UIApplication.shared.isIdleTimerDisabled = true }
         }
         .onDisappear {
+            UIPageControl.appearance().currentPageIndicatorTintColor = nil
+            UIPageControl.appearance().pageIndicatorTintColor = nil
             UIApplication.shared.isIdleTimerDisabled = false
         }
         .sheet(item: $sessionResult, onDismiss: { isTracking = false }) { result in
@@ -141,18 +61,232 @@ struct TrackingView: View {
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Page 1: Timer + Speed
+
+    private var timerSpeedPage: some View {
+        VStack(spacing: 0) {
+            Spacer()
+            VStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Circle().fill(Color.red).frame(width: 8, height: 8)
+                    Text("REC")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.red)
+                }
+                Text(stats.map { formatDuration($0.durationSeconds) } ?? "0:00")
+                    .font(.system(size: 64, weight: .semibold, design: .monospaced))
+                    .monospacedDigit()
+                    .foregroundStyle(Color(.label))
+            }
+            Spacer()
+            Dial(
+                value: max(0, location.speed * 3.6),
+                max: 200,
+                unit: "km/h",
+                label: "speed",
+                size: 220,
+                zone: .accentColor,
+                bigValue: true
+            )
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemBackground))
+    }
+
+    // MARK: - Page 2: G-G Diagram + Live & Peak
+
+    private var ggPage: some View {
+        GeometryReader { geo in
+            let diagramSize = min(geo.size.width - 32, geo.size.height * 0.48)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Text("g-g Diagram")
+                            .font(.footnote.weight(.medium))
+                            .textCase(.uppercase)
+                            .foregroundStyle(.secondary)
+                            .tracking(0.3)
+                        Spacer()
+                        Text("live")
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 10)
+
+                    GGDiagram(
+                        points: ggTrail,
+                        gmax: 0.7,
+                        size: diagramSize,
+                        showTrail: true,
+                        current: ggCurrent
+                    )
+                    .frame(maxWidth: .infinity)
+
+                    VStack(spacing: 0) {
+                        HStack(spacing: 0) {
+                            Text("Axis")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text("Live")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 82, alignment: .trailing)
+                            Text("Peak")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(Color.accentColor)
+                                .frame(width: 82, alignment: .trailing)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+
+                        Divider()
+
+                        gTableRow("Forward",  liveValue: liveForwardStr,  peakValue: peakForwardStr)
+                        gTableRow("Lateral",  liveValue: liveLateralStr,  peakValue: peakLateralStr)
+                        gTableRow("Vertical", liveValue: liveVerticalStr, peakValue: peakVerticalStr)
+                        gTableRow("Net",      liveValue: liveNetStr,      peakValue: peakNetStr, isLast: true)
+                    }
+                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+                    .padding(.bottom, 20)
+                }
+                .frame(minHeight: geo.size.height)
+            }
+        }
+        .background(Color(.systemBackground))
+    }
+
+    // MARK: - Page 3: Session Stats
+
+    private var sessionStatsPage: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 2),
+                    spacing: 10
+                ) {
+                    StatCell(label: "Distance",    value: stats.map { formatDistance($0.totalDistanceM) } ?? "—",        cardBackground: Color(.secondarySystemBackground))
+                    StatCell(label: "Moving time", value: stats.map { formatDuration($0.movingTimeSeconds) } ?? "—",     cardBackground: Color(.secondarySystemBackground))
+                    StatCell(label: "Max speed",   value: stats.map { String(format: "%.0f km/h", $0.maxSpeedMps * 3.6) } ?? "—", cardBackground: Color(.secondarySystemBackground))
+                    StatCell(label: "Stops",       value: stats.map { "\($0.stopCount)" } ?? "—",                        cardBackground: Color(.secondarySystemBackground))
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Hard Events")
+                            .font(.footnote.weight(.medium))
+                            .textCase(.uppercase)
+                            .foregroundStyle(.secondary)
+                            .tracking(0.3)
+                        Spacer()
+                        Text(String(format: "threshold %.2f g", motion.hardThresholdG))
+                            .font(.caption2.monospaced())
+                            .foregroundStyle(.tertiary)
+                    }
+                    LazyVGrid(
+                        columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3),
+                        spacing: 10
+                    ) {
+                        StatCell(label: "Accel",  value: "\(stats?.hardAccelCount ?? 0)",     accent: true, cardBackground: Color(.secondarySystemBackground))
+                        StatCell(label: "Brake",  value: "\(stats?.hardBrakingCount ?? 0)",   accent: true, cardBackground: Color(.secondarySystemBackground))
+                        StatCell(label: "Corner", value: "\(stats?.hardCorneringCount ?? 0)", accent: true, cardBackground: Color(.secondarySystemBackground))
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+        }
+        .background(Color(.systemBackground))
+    }
+
+    // MARK: - Page 4: Heading Debug
+
+    private var headingPage: some View {
+        List {
+            Section("Heading Source") {
+                LabeledContent("Mode",                value: headingMode)
+                LabeledContent("Base GPS / estimate", value: headingBaseEst)
+                LabeledContent("GPS age",             value: headingGpsAge)
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+
+    // MARK: - G Table Row
 
     @ViewBuilder
-    private func liveRow(_ label: String, value: String, isLast: Bool = false) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(label).font(.body).foregroundStyle(Color(.label))
-            Spacer()
-            Text(value).font(.system(.footnote, design: .monospaced)).foregroundStyle(.secondary)
+    private func gTableRow(_ label: String, liveValue: String, peakValue: String, isLast: Bool = false) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                Text(label)
+                    .font(.body)
+                    .foregroundStyle(Color(.label))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text(liveValue)
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 82, alignment: .trailing)
+                Text(peakValue)
+                    .font(.system(.body, design: .monospaced))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 82, alignment: .trailing)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 13)
+            if !isLast {
+                Divider().padding(.leading, 16)
+            }
         }
-        .padding(.vertical, 9)
-        if !isLast { Divider() }
     }
+
+    // MARK: - Live G values
+
+    private var liveForwardStr: String {
+        motion.displayAcceleration.map { String(format: "%+.2f g", $0.forward) } ?? "—"
+    }
+
+    private var liveLateralStr: String {
+        motion.displayAcceleration.map { String(format: "%+.2f g", $0.lateral) } ?? "—"
+    }
+
+    private var liveVerticalStr: String {
+        motion.displayAcceleration.map { String(format: "%+.2f g", $0.vertical) } ?? "—"
+    }
+
+    private var liveNetStr: String {
+        motion.displayAcceleration.map { a in
+            let net = (a.forward * a.forward + a.lateral * a.lateral + a.vertical * a.vertical).squareRoot()
+            return String(format: "%.2f g", net)
+        } ?? "—"
+    }
+
+    // MARK: - Peak G values (session max in each axis)
+
+    private var peakForwardStr: String {
+        guard let s = stats else { return "—" }
+        return String(format: "%.2f g", max(s.peakForward, abs(s.peakBraking)))
+    }
+
+    private var peakLateralStr: String {
+        guard let s = stats else { return "—" }
+        return String(format: "%.2f g", max(abs(s.peakRight), abs(s.peakLeft)))
+    }
+
+    private var peakVerticalStr: String {
+        guard let s = stats else { return "—" }
+        return String(format: "%.2f g", max(s.peakUp, abs(s.peakDown)))
+    }
+
+    private var peakNetStr: String {
+        stats.map { String(format: "%.2f g", $0.peakNetAccel) } ?? "—"
+    }
+
+    // MARK: - GG helpers
 
     private var ggTrail: [GGPoint] {
         motion.recentSamples.map { GGPoint(lat: $0.lateral, fwd: $0.forward) }
@@ -163,12 +297,7 @@ struct TrackingView: View {
         return GGPoint(lat: a.lateral, fwd: a.forward)
     }
 
-    private func signedG(_ v: Double) -> String { String(format: "%+.2f g", v) }
-
-    private func netGStr(_ a: AccelerationComponents) -> String {
-        let net = (a.forward * a.forward + a.lateral * a.lateral + a.vertical * a.vertical).squareRoot()
-        return String(format: "%.2f g", net)
-    }
+    // MARK: - Heading helpers
 
     private var headingMode: String {
         switch motion.headingStatus {
@@ -193,6 +322,8 @@ struct TrackingView: View {
         case .propagated(_, _, let age): return String(format: "%.1f s", age)
         }
     }
+
+    // MARK: - Stop
 
     private func stopSession() {
         motion.endSession()

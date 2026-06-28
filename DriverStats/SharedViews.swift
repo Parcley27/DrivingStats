@@ -171,6 +171,7 @@ struct StatCell: View {
     var unit: String? = nil
     var sub: String? = nil
     var accent: Bool = false
+    var cardBackground: Color = Color(.secondarySystemGroupedBackground)
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -186,7 +187,7 @@ struct StatCell: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .padding(EdgeInsets(top: 11, leading: 13, bottom: 11, trailing: 13))
-        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(cardBackground, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
