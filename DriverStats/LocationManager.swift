@@ -47,7 +47,7 @@ class LocationManager: NSObject, ObservableObject {
     /// Maximum horizontal accuracy (m) above which the fix is considered too poor to use
     static let maxReliableAccuracyM: Double = 50.0
     /// Radius around the recording start point that counts as lap completion (metres)
-    static let lapRadiusM: Double = 75
+    static let lapRadiusM: Double = 10
     /// Minimum seconds between consecutive lap detections — guards against multiple
     /// triggers while passing through the start zone on short circuits
     static let lapMinIntervalS: Double = 20

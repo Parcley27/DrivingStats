@@ -310,13 +310,9 @@ private struct DriveSessionContent: View {
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
             }
-
             // Laps — only shown when the driver completed at least one circuit
             if !lapSplits.isEmpty {
                 Section {
-                    Text("Laps use the recording start point as the finish line — GPS accuracy and circuit shape affect detection.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                     let fastest = lapSplits.min() ?? 0
                     let slowest = lapSplits.max() ?? 0
                     ForEach(lapSplits.indices, id: \.self) { i in
@@ -343,11 +339,14 @@ private struct DriveSessionContent: View {
                                 .foregroundStyle(.orange)
                         }
                     }
+                    
                 } header: {
                     sectionHeader("Laps", note: "\(lapSplits.count) \(lapSplits.count == 1 ? "lap" : "laps")")
+                } footer: {
+                    Text("Laps use the recording start point as the finish line. GPS accuracy and circuit shape may affect detection.")
                 }
             }
-
+            
             // Session timing + data size
             Section {
                 LabeledContent("Started", value: stats.startDate.formatted(date: .abbreviated, time: .shortened))
