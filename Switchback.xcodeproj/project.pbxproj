@@ -7,9 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		BE6B36742FF09314000D64A1 /* DrivingStats.icon in Resources */ = {isa = PBXBuildFile; fileRef = BE6B36732FF09314000D64A1 /* DrivingStats.icon */; };
-		BE6B36752FF09314000D64A1 /* DrivingStats.icon in Resources */ = {isa = PBXBuildFile; fileRef = BE6B36732FF09314000D64A1 /* DrivingStats.icon */; };
-		BE6B36762FF09314000D64A1 /* DrivingStats.icon in Resources */ = {isa = PBXBuildFile; fileRef = BE6B36732FF09314000D64A1 /* DrivingStats.icon */; };
+		BE6B36742FF09314000D64A1 /* Switchback Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = BE6B36732FF09314000D64A1 /* Switchback Icon.icon */; };
+		BE6B36752FF09314000D64A1 /* Switchback Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = BE6B36732FF09314000D64A1 /* Switchback Icon.icon */; };
+		BE6B36762FF09314000D64A1 /* Switchback Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = BE6B36732FF09314000D64A1 /* Switchback Icon.icon */; };
 		BEEA5D922FEF767A00EDC9BB /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = BEEA5D912FEF767A00EDC9BB /* .gitignore */; };
 		BEEA5D932FEF767A00EDC9BB /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = BEEA5D912FEF767A00EDC9BB /* .gitignore */; };
 		BEEA5D942FEF767A00EDC9BB /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = BEEA5D912FEF767A00EDC9BB /* .gitignore */; };
@@ -37,7 +37,7 @@
 		6E6F9BFD2FD68A7200A94BEE /* DrivingStatsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DrivingStatsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6E6F9C072FD68A7200A94BEE /* DrivingStatsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DrivingStatsUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6E6F9C202FD6992500A94BEE /* DrivingStats-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "DrivingStats-Info.plist"; sourceTree = "<group>"; };
-		BE6B36732FF09314000D64A1 /* DrivingStats.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = DrivingStats.icon; sourceTree = "<group>"; };
+		BE6B36732FF09314000D64A1 /* Switchback Icon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = "Switchback Icon.icon"; sourceTree = "<group>"; };
 		BEEA5D912FEF767A00EDC9BB /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -93,7 +93,7 @@
 				6E6F9C0A2FD68A7200A94BEE /* DriverStatsUITests */,
 				6E6F9BEF2FD68A7100A94BEE /* Products */,
 				BEEA5D912FEF767A00EDC9BB /* .gitignore */,
-				BE6B36732FF09314000D64A1 /* DrivingStats.icon */,
+				BE6B36732FF09314000D64A1 /* Switchback Icon.icon */,
 			);
 			sourceTree = "<group>";
 		};
@@ -186,7 +186,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2650;
-				LastUpgradeCheck = 2650;
+				LastUpgradeCheck = 2700;
 				TargetAttributes = {
 					6E6F9BED2FD68A7100A94BEE = {
 						CreatedOnToolsVersion = 26.5;
@@ -201,7 +201,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 6E6F9BE92FD68A7100A94BEE /* Build configuration list for PBXProject "DrivingStats" */;
+			buildConfigurationList = 6E6F9BE92FD68A7100A94BEE /* Build configuration list for PBXProject "Switchback" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -227,7 +227,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BE6B36742FF09314000D64A1 /* DrivingStats.icon in Resources */,
+				BE6B36742FF09314000D64A1 /* Switchback Icon.icon in Resources */,
 				BEEA5D922FEF767A00EDC9BB /* .gitignore in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -236,7 +236,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BE6B36762FF09314000D64A1 /* DrivingStats.icon in Resources */,
+				BE6B36762FF09314000D64A1 /* Switchback Icon.icon in Resources */,
 				BEEA5D932FEF767A00EDC9BB /* .gitignore in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -245,7 +245,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BE6B36752FF09314000D64A1 /* DrivingStats.icon in Resources */,
+				BE6B36752FF09314000D64A1 /* Switchback Icon.icon in Resources */,
 				BEEA5D942FEF767A00EDC9BB /* .gitignore in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -349,6 +349,7 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -406,6 +407,7 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
 			};
@@ -414,7 +416,7 @@
 		6E6F9C122FD68A7200A94BEE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = DrivingStats;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "Switchback Icon";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -423,7 +425,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "DrivingStats-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = DrivingStats;
+				INFOPLIST_KEY_CFBundleDisplayName = Switchback;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.navigation";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "This allows DrivingStats to use your current heading and location";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This allows DrivingStats to use your current heading and location.";
@@ -453,7 +455,7 @@
 		6E6F9C132FD68A7200A94BEE /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = DrivingStats;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "Switchback Icon";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -462,7 +464,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "DrivingStats-Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = DrivingStats;
+				INFOPLIST_KEY_CFBundleDisplayName = Switchback;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.navigation";
 				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "This allows DrivingStats to use your current heading and location";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "This allows DrivingStats to use your current heading and location.";
@@ -576,7 +578,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		6E6F9BE92FD68A7100A94BEE /* Build configuration list for PBXProject "DrivingStats" */ = {
+		6E6F9BE92FD68A7100A94BEE /* Build configuration list for PBXProject "Switchback" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				6E6F9C0F2FD68A7200A94BEE /* Debug */,
