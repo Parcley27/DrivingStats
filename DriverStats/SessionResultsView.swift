@@ -348,7 +348,7 @@ private struct DriveSessionContent: View {
             }
             
             // Session timing + data size
-            Section {
+            Section("Session Data Information") {
                 LabeledContent("Started", value: stats.startDate.formatted(date: .abbreviated, time: .shortened))
                 if let end = stats.endDate {
                     LabeledContent("Ended", value: end.formatted(date: .abbreviated, time: .shortened))
