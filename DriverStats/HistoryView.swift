@@ -253,9 +253,14 @@ private struct SessionCardView: View {
                         Text(primaryLabel)
                             .font(.system(size: 14.5, weight: .semibold))
                             .lineLimit(1)
+                        if session.routeLabel != nil {
+                            Text(session.startDate.formatted(date: .abbreviated, time: .omitted))
+                                .font(.system(size: 11.5))
+                                .foregroundStyle(.secondary)
+                        }
                         Text(timeRange)
                             .font(.system(size: 11.5))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.tertiary)
                     }
                     Spacer()
                     if showDrivingScore {
