@@ -175,6 +175,14 @@ struct SettingsView: View {
 
             // MARK: History
             Section("History") {
+                NavigationLink(destination: NamedLocationsView()) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Named Locations")
+                        Text("Tag recurring places like Home or Work — drives that start or end nearby use the name automatically.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+
                 Toggle(isOn: $geoLabels) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Show location names")

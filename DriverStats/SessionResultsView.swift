@@ -72,8 +72,24 @@ struct SessionResultsView: View {
     private func geocodePlaceNames(session: DriveSession,
                                    start: CLLocationCoordinate2D,
                                    end: CLLocationCoordinate2D) async {
-        session.startPlaceName = await reverseName(coordinate: start)
-        session.endPlaceName = await reverseName(coordinate: end)
+        let descriptor = FetchDescriptor<NamedLocation>()
+        let namedLocations = (try? modelContext.fetch(descriptor)) ?? []
+
+        if let named = namedLocationName(for: start, in: namedLocations) {
+            session.startPlaceName = named
+        } else {
+            session.startPlaceName = await reverseName(coordinate: start)
+        }
+        if let named = namedLocationName(for: end, in: namedLocations) {
+            session.endPlaceName = named
+        } else {
+            session.endPlaceName = await reverseName(coordinate: end)
+        }
+    }
+
+    private func namedLocationName(for coordinate: CLLocationCoordinate2D,
+                                   in locations: [NamedLocation]) -> String? {
+        locations.filter { $0.contains(coordinate) }.min(by: { $0.radius < $1.radius })?.name
     }
 
     private func reverseName(coordinate: CLLocationCoordinate2D) async -> String? {
