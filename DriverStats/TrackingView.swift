@@ -6,12 +6,14 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct TrackingView: View {
     @ObservedObject var motion: MotionManager
     @ObservedObject var location: LocationManager
     @Binding var isTracking: Bool
 
+    @AppStorage("ds.keepScreenOn") private var keepScreenOn: Bool = false
     @State private var sessionResult: SessionResult? = nil
 
     private var stats: SessionStats? { motion.sessionStats }
@@ -127,6 +129,12 @@ struct TrackingView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(.regularMaterial)
+        }
+        .onAppear {
+            if keepScreenOn { UIApplication.shared.isIdleTimerDisabled = true }
+        }
+        .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
         }
         .sheet(item: $sessionResult, onDismiss: { isTracking = false }) { result in
             SessionResultsView(result: result)

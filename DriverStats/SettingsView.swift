@@ -16,6 +16,7 @@ struct SettingsView: View {
     @AppStorage("ds.showDrivingScore") private var showDrivingScore: Bool = true
     @AppStorage("ds.feltDirection") private var feltDirection: Bool = false
     @AppStorage("ds.storeRawData") private var storeRawData: Bool = true
+    @AppStorage("ds.keepScreenOn") private var keepScreenOn: Bool = false
 
     @State private var needsRecompute = false
     @State private var showEraseConfirmation = false
@@ -69,6 +70,15 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Background recording")
                         Text("Keep logging with the screen off (needs Always location access).")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .tint(.green)
+
+                Toggle(isOn: $keepScreenOn) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Keep screen on")
+                        Text("Prevents the display from sleeping during a recording session.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -171,6 +181,7 @@ struct SettingsView: View {
                     motion.suppressVerticalEvents  = true
                     autoPause           = true
                     backgroundRecording = false
+                    keepScreenOn        = false
                 } label: {
                     HStack {
                         Text("Restore Defaults")
